@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# Your videos, clips and music stay on your Mac, not in git
+data/*
+!data/.gitkeep
+
+# Local AI model files and misc
+*.gguf
+.DS_Store
+.env

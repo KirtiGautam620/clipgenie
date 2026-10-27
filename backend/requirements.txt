@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-multipart
+pillow
+mlx-whisper
+yt-dlp
