@@ -7,14 +7,13 @@ import CreateShortWizard from './components/CreateShortWizard.jsx';
 import ProcessingScreen from './components/ProcessingScreen.jsx';
 import Gallery from './components/Gallery.jsx';
 import StudioEditor from './components/StudioEditor.jsx';
-import AIVisualsBin from './components/AIVisualsBin.jsx';
 import MusicView from './components/MusicView.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import ExportStudioModal from './components/ExportStudioModal.jsx';
 import './styles/global.css';
 
 // ── Screens / Views ─────────────────────────────────────────
-// home | create | processing | gallery | studio | visuals | music | settings
+// home | create | processing | gallery | studio | music | settings
 const SAVED_JOB = 'clipgenie.lastJob';
 
 export default function App() {
@@ -258,14 +257,7 @@ export default function App() {
           />
         )}
 
-        {/* 6. AI Visuals Bin */}
-        {view === 'visuals' && (
-          <AIVisualsBin
-            onCreateShortWithVisual={() => handleNavigate('create')}
-          />
-        )}
-
-        {/* 7. Music & Sound FX Library */}
+        {/* 6. Music Library */}
         {view === 'music' && (
           <MusicView
             library={library}
@@ -287,6 +279,7 @@ export default function App() {
             clip={exportingClip}
             onClose={() => setExportingClip(null)}
             onConfirmed={handleClipUpdated}
+            onChooseText={(c) => { setExportingClip(null); openStudio(c); }}
           />
         )}
       </div>

@@ -401,3 +401,21 @@
   flex-direction: column;
   gap: 10px;
 }
+
+/* "About this clip": plain facts read from the clip itself */
+.cg-detail-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.cg-detail-list dt {
+  color: var(--cg-text-muted);
+}
+
+.cg-detail-list dd {
+  margin: 0;
+  color: var(--cg-text-primary);
+}

@@ -9,8 +9,8 @@ import subprocess
 from pathlib import Path
 
 from app.audiofx import voice_filter
-from app.captions import render_track, strip_y, words_in_clip
-from app.captionstyles import CaptionStyle, resolve
+from app.captions import headline_png, headline_y, render_track, strip_y, words_in_clip
+from app.captionstyles import CaptionStyle, HeadlineStyle, resolve
 from app.framing import Plan, crop_x_expression, plan_for_clip
 
 OUT_W, OUT_H = 1080, 1920
@@ -70,6 +70,43 @@ def apply_captions(base: Path, cap_words: list[dict], style: CaptionStyle, out: 
         raise RuntimeError(f"ffmpeg failed: {e.stderr[-400:]}") from e
     finally:
         track.unlink(missing_ok=True)
+
+
+FADE = 0.35
+
+
+def _duration(media: Path) -> float:
+    return float(subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(media)],
+        check=True, capture_output=True, text=True).stdout)
+
+
+def apply_headline(base: Path, text: str, style: HeadlineStyle, out: Path, work: Path) -> None:
+    """Stage 2 alternative: lay a headline card over the caption-free base clip. It fades in, stays
+    for style.seconds (0 = the whole clip) and fades out. The sound is copied as it is."""
+    duration = _duration(base)
+    png = work / f"{out.stem}_headline.png"
+    png.write_bytes(headline_png(text, style))
+    fades = f"fade=t=in:st=0:d={FADE}:alpha=1"
+    if style.seconds and style.seconds < duration:
+        fades += f",fade=t=out:st={style.seconds - FADE:.2f}:d={FADE}:alpha=1"
+    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-i", str(base),
+           "-loop", "1", "-framerate", "25", "-t", f"{duration:.3f}", "-i", str(png),
+           "-filter_complex",
+           f"[1:v]format=rgba,{fades}[h];[0:v][h]overlay=0:{headline_y(style, OUT_H)}:eof_action=pass:format=auto[v]",
+           "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+           "-pix_fmt", "yuv420p", "-c:a", "copy", "-t", f"{duration:.3f}", str(out)]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"ffmpeg failed: {e.stderr[-400:]}") from e
+    finally:
+        png.unlink(missing_ok=True)
+
+
+def apply_no_text(base: Path, out: Path) -> None:
+    """The finished clip with no text at all: the caption-free base, as it is."""
+    shutil.copyfile(base, out)
 
 
 def export_clip(video: Path, words: list[dict], start: float, end: float,

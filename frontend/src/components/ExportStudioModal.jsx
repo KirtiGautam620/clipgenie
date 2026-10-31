@@ -2,10 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getJSON } from '../api.js';
 import './ExportStudioModal.css';
 
-export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed }) {
-  const [resolution, setResolution] = useState('1080p');
-  const [codec, setCodec] = useState('h264');
-  const [bitrate, setBitrate] = useState('high');
+export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, onChooseText }) {
   const [ticked, setTicked] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -48,8 +45,11 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed })
     setBusy(false);
   };
 
-  const socialTitle = clip.title || `Viral Highlight #${clip.id}`;
-  const socialDescription = `${clip.title}\n\n${clip.reason || ''}\n\n#shorts #podcast #viral #clipgenie\n\n${clip.credits || ''}`;
+  // A generic "Clip 3" is not a title: leave it out rather than publish it
+  const named = !!clip.title && !/^Clip \d+$/.test(clip.title);
+  const needsDecision = !!clip.text?.needs_decision;
+  const socialTitle = named ? clip.title : '(add your own title)';
+  const socialDescription = `${named ? clip.title : ''}\n\n${clip.reason || ''}\n\n#shorts\n\n${clip.credits || ''}`;
 
   const handleCopyMeta = async () => {
     try {
@@ -73,49 +73,27 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed })
         <div className="cg-export-modal-header">
           <div>
             <h2 className="cg-heading-md">📤 Export Short Studio</h2>
-            <span className="cg-text-xs cg-text-muted">High-fidelity 9:16 vertical render</span>
+            <span className="cg-text-xs cg-text-muted">Vertical 9:16 MP4, 1080 × 1920</span>
           </div>
           <button className="cg-btn cg-btn--icon cg-btn--secondary" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
 
-        {/* 1. Format & Resolution Settings */}
+        {/* 1. What you get: exactly what ClipGenie produces (there are no quality options to choose) */}
         <div className="cg-export-section">
-          <label className="cg-label">Render Quality & Codec</label>
-          <div className="cg-export-options-grid">
-            <div className="cg-export-option-group">
-              <span className="cg-text-xs cg-text-secondary">Resolution</span>
-              <select className="cg-select" value={resolution} onChange={(e) => setResolution(e.target.value)}>
-                <option value="1080p">1080 × 1920 (Standard HD)</option>
-                <option value="4k">2160 × 3840 (4K Ultra-Sharp)</option>
-              </select>
-            </div>
-            <div className="cg-export-option-group">
-              <span className="cg-text-xs cg-text-secondary">Codec</span>
-              <select className="cg-select" value={codec} onChange={(e) => setCodec(e.target.value)}>
-                <option value="h264">H.264 (Maximum Compatibility)</option>
-                <option value="hevc">HEVC / H.265 (High Efficiency)</option>
-              </select>
-            </div>
-            <div className="cg-export-option-group">
-              <span className="cg-text-xs cg-text-secondary">Bitrate</span>
-              <select className="cg-select" value={bitrate} onChange={(e) => setBitrate(e.target.value)}>
-                <option value="high">16 Mbps (High Dynamic Range)</option>
-                <option value="normal">8 Mbps (Standard Web)</option>
-              </select>
-            </div>
-          </div>
+          <label className="cg-label">Your file</label>
+          <p className="cg-text-sm">MP4 video · 1080 × 1920 (9:16) · H.264 video with AAC audio</p>
         </div>
 
         {/* 2. Copyright Verification Checklist */}
         <div className="cg-export-section">
           <div className="cg-checklist-title-row">
             <label className="cg-label">📋 Copyright & Rights Verification</label>
-            <span className="cg-badge cg-badge--warning">Required by Law</span>
+            <span className="cg-badge cg-badge--warning">Required before download</span>
           </div>
           <p className="cg-text-xs cg-text-muted" style={{ marginBottom: 8 }}>
-            Confirm these items to authorize the render and generate your tamper-evident rights report.
+            Confirm these items to unlock the download. Your confirmations are saved in a rights report you can download.
           </p>
 
           <div className="cg-export-checklist">
@@ -157,12 +135,26 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed })
           </div>
           <div className="cg-meta-preview-box">
             <p className="cg-meta-preview-title"><strong>Title:</strong> {socialTitle}</p>
-            <p className="cg-meta-preview-desc"><strong>Tags:</strong> #shorts #podcast #tech #viral</p>
+            <p className="cg-meta-preview-desc"><strong>Tags:</strong> #shorts</p>
             {clip.credits && (
               <p className="cg-meta-preview-credits"><strong>Attribution:</strong> {clip.credits}</p>
             )}
           </div>
         </div>
+
+        {needsDecision && (
+          <div className="cg-alert cg-alert--warn" role="alert">
+            <span className="cg-alert-icon">⚠️</span>
+            <span>
+              The speech in this clip could not be trusted, so it has no captions. Choose a headline of
+              your own, or export without text, before downloading.
+              {onChooseText && (
+                <> <button type="button" className="cg-btn cg-btn--sm cg-btn--secondary"
+                  onClick={() => onChooseText(clip)}>Choose text</button></>
+              )}
+            </span>
+          </div>
+        )}
 
         {error && (
           <div className="cg-alert cg-alert--error" role="alert">
@@ -188,12 +180,12 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed })
           <button
             className="cg-btn cg-btn--primary"
             onClick={handleConfirmAndDownload}
-            disabled={!allTicked || busy}
+            disabled={!allTicked || busy || needsDecision}
           >
             {busy ? (
-              <><span className="cg-spinner" /> Encoding…</>
+              <><span className="cg-spinner" /> Preparing…</>
             ) : (
-              '↓ Render & Download MP4'
+              '↓ Download MP4'
             )}
           </button>
         </div>

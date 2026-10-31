@@ -7,7 +7,7 @@ a platform's copyright system (like YouTube's Content ID) will not flag a clip.
 import json
 from datetime import datetime, timezone
 
-from app import jobs
+from app import jobs, textmode
 
 SOURCE_RIGHTS = {
     "own": "I made this video / I own it",
@@ -134,7 +134,7 @@ def is_confirmed(job_id: str, clip: dict) -> bool:
 
 def enrich(job_id: str, clip: dict) -> dict:
     source = load_source(job_id)
-    return {**clip,
+    return {**textmode.public(clip),
             "warnings": warnings(source, clip),
             "credits": credits_text(source, clip),
             "checklist": required_items(source, clip),

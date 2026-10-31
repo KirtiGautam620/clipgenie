@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getJSON } from '../api.js';
+import TextChoicePanel from './TextChoicePanel.jsx';
 import './CaptionsStylePanel.css';
 
 // The looks and limits come from the backend, so the page can never offer something it can't draw.
@@ -26,7 +27,7 @@ const LABELS = {
 const styleOf = (s) => Object.fromEntries(['preset', ...STYLE_KEYS].map((k) => [k, s[k]]));
 const wordsOf = (c) => (c?.words || []).map((w) => w.text);
 
-export default function CaptionsStylePanel({ jobId, clip, onApplied }) {
+function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
   const caps = clip.captions;
   const [options, setOptions] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -272,6 +273,35 @@ export default function CaptionsStylePanel({ jobId, clip, onApplied }) {
       <p className="cg-text-xs cg-text-muted">
         Changing captions makes a new version of this clip, so its copyright checklist must be ticked again.
       </p>
+      {onOtherText && (
+        <div className="cg-caption-actions">
+          <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={busy}
+            onClick={onOtherText}>
+            Use a headline or no text instead
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+// Captions are only shown for speech ClipGenie could trust. Otherwise the user chooses a headline
+// of their own, or no text (see TextChoicePanel).
+export default function CaptionsStylePanel(props) {
+  const { clip } = props;
+  const [chooseText, setChooseText] = useState(false);
+  const text = clip.text;
+  const untrusted = text && ['unreliable', 'unusable'].includes(text.verdict);
+  const showChoices = untrusted || (text && text.mode !== 'captions') || chooseText;
+  useEffect(() => { setChooseText(false); }, [clip.id]);
+  if (showChoices) {
+    return (
+      <TextChoicePanel
+        {...props}
+        canUseCaptions={!untrusted && !!clip.captions}
+        onBackToCaptions={text?.mode === 'captions' ? () => setChooseText(false) : undefined}
+      />
+    );
+  }
+  return <CaptionsEditor {...props} onOtherText={() => setChooseText(true)} />;
 }

@@ -105,3 +105,97 @@ def contrast_text(hex_color: str) -> str:
     """Dark or white text, whichever reads better on this background colour."""
     r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
     return "#151515" if (0.299 * r + 0.587 * g + 0.114 * b) > 150 else "#FFFFFF"
+
+
+# ================================================================== headlines
+# A headline is NOT a subtitle: it is a title the user wrote (or approved), shown as a poster-style
+# card for a few seconds. It is used when the speech cannot be turned into trustworthy captions.
+
+HEADLINE_BOXES = ("none", "card", "banner")   # card = dark rounded card with an accent rule,
+                                              # banner = solid accent colour, none = bare text
+HEADLINE_POSITION_MIN, HEADLINE_POSITION_MAX = 10, 72
+HEADLINE_MAX_CHARS = 120
+
+
+@dataclass(frozen=True)
+class HeadlineStyle:
+    preset: str = "poster"
+    weight: str = "extrabold"
+    size: int = 74
+    text_color: str = "#FFFFFF"
+    accent_color: str = "#FFB84D"
+    position: int = 24          # vertical centre, % of the video height
+    uppercase: bool = False
+    seconds: int = 4            # how long it stays on screen; 0 = the whole clip
+    box: str = "card"
+    shadow: bool = True
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+HEADLINE_PRESETS = {
+    "poster": {
+        "label": "Poster", "description": "A dark rounded card with an accent rule, near the top.",
+        "style": dict(weight="extrabold", size=74, accent_color="#FFB84D", position=24, box="card",
+                      uppercase=False, seconds=4, shadow=True)},
+    "banner": {
+        "label": "Banner", "description": "Bold text on a solid colour banner.",
+        "style": dict(weight="bold", size=64, accent_color="#FFB84D", position=28, box="banner",
+                      uppercase=False, seconds=4, shadow=False)},
+    "title": {
+        "label": "Title", "description": "Big plain capitals with a soft shadow, no box.",
+        "style": dict(weight="extrabold", size=82, accent_color="#FFB84D", position=26, box="none",
+                      uppercase=True, seconds=3, shadow=True)},
+}
+DEFAULT_HEADLINE_PRESET = "poster"
+
+HEADLINE_LIMITS = {"size": (40, 110), "position": (HEADLINE_POSITION_MIN, HEADLINE_POSITION_MAX),
+                   "seconds": (0, 15)}
+
+
+def headline_preset_list() -> list[dict]:
+    return [{"id": k, "label": v["label"], "description": v["description"],
+             "style": resolve_headline(k).as_dict()} for k, v in HEADLINE_PRESETS.items()]
+
+
+def resolve_headline(preset: str = DEFAULT_HEADLINE_PRESET, overrides: dict | None = None) -> HeadlineStyle:
+    """Preset + the user's changes -> a checked headline style. Raises ValueError for anything invalid."""
+    if preset not in HEADLINE_PRESETS:
+        raise ValueError(f"Unknown headline look '{preset}'")
+    values = {**HEADLINE_PRESETS[preset]["style"], **(overrides or {})}
+    values.pop("preset", None)
+    allowed = {f.name for f in fields(HeadlineStyle)} - {"preset"}
+    unknown = set(values) - allowed
+    if unknown:
+        raise ValueError(f"Unknown headline setting: {', '.join(sorted(unknown))}")
+
+    style = replace(HeadlineStyle(), preset=preset, **values)
+    for name, (lo, hi) in HEADLINE_LIMITS.items():
+        value = getattr(style, name)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{name} must be a number")
+        style = replace(style, **{name: int(min(hi, max(lo, value)))})
+    if style.seconds not in (0,) and style.seconds < 2:
+        style = replace(style, seconds=2)                 # shorter than 2 s is unreadable
+    for name in ("text_color", "accent_color"):
+        if not isinstance(getattr(style, name), str) or not HEX.fullmatch(getattr(style, name)):
+            raise ValueError(f"{name} must look like #RRGGBB")
+    for name, allowed_values in (("weight", tuple(WEIGHTS)), ("box", HEADLINE_BOXES)):
+        if getattr(style, name) not in allowed_values:
+            raise ValueError(f"{name} must be one of: {', '.join(allowed_values)}")
+    if not isinstance(style.uppercase, bool) or not isinstance(style.shadow, bool):
+        raise ValueError("uppercase and shadow must be true or false")
+    return style
+
+
+def clean_headline(text) -> str:
+    """The headline text the user typed, tidied and checked. Raises ValueError if unusable."""
+    if not isinstance(text, str):
+        raise ValueError("The headline must be text.")
+    text = re.sub(r"\s+", " ", "".join(c for c in text if c.isprintable() or c.isspace())).strip()
+    if not text:
+        raise ValueError("Please type a headline.")
+    if len(text) > HEADLINE_MAX_CHARS:
+        raise ValueError(f"Keep the headline under {HEADLINE_MAX_CHARS} characters.")
+    return text

@@ -12,6 +12,8 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
   const [playing, setPlaying] = useState(false);
 
   const mood = clip.mood && clip.mood !== 'other' ? clip.mood : null;
+  const needsDecision = !!clip.text?.needs_decision;
+  const textChip = { headline: 'Headline', none: 'No text' }[clip.text?.mode];
   const mc = moodClass(clip.mood);
 
   return (
@@ -50,12 +52,21 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
           {mood && (
             <span className={`cg-badge cg-badge--${mc}`}>{mood}</span>
           )}
-          {clip.score && (
+          {needsDecision && (
+            <span className="cg-badge cg-badge--warning" title={clip.text.reasons?.join(' ')}>Needs your decision</span>
+          )}
+          {textChip && <span className="cg-badge cg-badge--muted">{textChip}</span>}
+          {clip.score && !needsDecision && (
             <span className="cg-badge cg-badge--score" title="AI quality score">★ {clip.score}/10</span>
           )}
         </div>
         {clip.reason && (
           <p className="cg-gallery-reason">{clip.reason}</p>
+        )}
+        {needsDecision && (
+          <p className="cg-gallery-reason">
+            The speech could not be trusted, so no words are shown. Choose a headline or export without text.
+          </p>
         )}
       </div>
 
@@ -78,10 +89,10 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
         </button>
         <button
           className="cg-btn cg-btn--primary cg-btn--sm"
-          onClick={() => onExport ? onExport(clip) : onEdit(clip)}
-          title="Export / Download"
+          onClick={() => (needsDecision || !onExport ? onEdit(clip) : onExport(clip))}
+          title={needsDecision ? 'Choose how text appears before exporting' : 'Export / Download'}
         >
-          ↓ Export
+          {needsDecision ? 'Choose text' : '↓ Export'}
         </button>
       </div>
 

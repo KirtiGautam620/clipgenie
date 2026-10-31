@@ -1,0 +1,29 @@
+.cg-text-status {
+  padding: 10px 12px;
+  background: var(--cg-warning-muted);
+  border: 1px solid var(--cg-warning);
+  border-radius: var(--cg-radius-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cg-text-status-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cg-text-primary);
+}
+
+.cg-text-reasons {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--cg-text-secondary);
+}
+
+.cg-headline-input {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.4;
+}

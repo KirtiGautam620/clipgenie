@@ -38,12 +38,19 @@ def release_memory() -> None:
         pass
 
 
+def garbage_reason(seg: dict) -> str | None:
+    """Why Whisper's own warning signs say this segment is made-up text, or None if it looks real."""
+    if seg.get("compression_ratio", 0) > 2.4:
+        return "repetitive"
+    if seg.get("no_speech_prob", 0) > 0.6 and seg.get("avg_logprob", 0) < -1.0:
+        return "no speech"
+    if re.search(r"(.)\1{7,}", seg["text"]):
+        return "repeated characters"
+    return None
+
+
 def _is_garbage(seg: dict) -> bool:
-    """Whisper's own warning signs for made-up text: repeats, or 'no speech' with low confidence."""
-    text = seg["text"]
-    return (seg.get("compression_ratio", 0) > 2.4
-            or (seg.get("no_speech_prob", 0) > 0.6 and seg.get("avg_logprob", 0) < -1.0)
-            or bool(re.search(r"(.)\1{7,}", text)))
+    return garbage_reason(seg) is not None
 
 
 def resegment(segments: list[dict], gap: float = 0.5, min_len: float = 1.5,
@@ -122,13 +129,23 @@ def transcribe(video: Path, work: Path, language: str | None = None) -> dict:
         raise NoSpeechError(f"The speech sounds like '{detected}', but ClipGenie supports English "
                             "and Hindi. If it is English or Hindi, choose the language yourself.")
 
+    # Keep Whisper's confidence figures: they are invisible to users but let quality.py judge
+    # whether the words can be trusted. `dropped` = stretches Whisper itself flagged as made up.
+    asr = [{"start": round(s["start"], 2), "end": round(s["end"], 2),
+            **{k: round(float(s[k]), 3) for k in ("avg_logprob", "no_speech_prob", "compression_ratio")
+               if s.get(k) is not None}} for s in good]
+    dropped = [{"start": round(s["start"], 2), "end": round(s["end"], 2), "reason": garbage_reason(s)}
+               for s in result["segments"] if _is_garbage(s)]
+
     segments = []
     for s in good:
         # Whisper sometimes emits half a character (shown as U+FFFD): remove it, and any
         # word that was nothing else.
         words = [{"start": round(w["start"], 2), "end": round(w["end"], 2),
-                  "word": w["word"].replace("�", "")} for w in s.get("words", [])]
+                  "word": w["word"].replace("�", ""),
+                  **({"p": round(float(w["probability"]), 2)} if w.get("probability") is not None else {})}
+                 for w in s.get("words", [])]
         words = [w for w in words if w["word"].strip()]
         segments.append({"start": round(s["start"], 2), "end": round(s["end"], 2),
                          "text": s["text"].replace("�", "").strip(), "words": words})
-    return {"language": detected, "segments": resegment(segments)}
+    return {"language": detected, "segments": resegment(segments), "asr": asr, "dropped": dropped}

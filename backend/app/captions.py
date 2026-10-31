@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from app.captionstyles import CaptionStyle, contrast_text, font_path, resolve
+from app.captionstyles import CaptionStyle, HeadlineStyle, contrast_text, font_path, resolve
 
 CANVAS_W, CANVAS_H = 1080, 420      # caption strip for a 1080x1920 video
 MAX_TEXT_W = int(CANVAS_W * 0.88)
@@ -295,4 +295,103 @@ def preview_png(style: CaptionStyle) -> bytes:
     frame = _render_frame(texts, active, scale, style)
     out = io.BytesIO()
     Image.alpha_composite(backdrop, frame).convert("RGB").save(out, "PNG")
+    return out.getvalue()
+
+
+# ---------------------------------------------------------------- headlines (a title, not subtitles)
+
+HEAD_W, HEAD_H = 1080, 560          # headline card canvas, overlaid on the 1080x1920 video
+HEAD_MAX_W = int(HEAD_W * 0.84)
+HEAD_MAX_LINES = 3
+HEAD_SAMPLE = "Your headline goes here"
+
+
+def headline_y(style: HeadlineStyle, video_h: int = 1920) -> int:
+    """Where the top of the headline canvas goes on the video."""
+    return max(0, min(video_h - HEAD_H, round(style.position / 100 * video_h - HEAD_H / 2)))
+
+
+@functools.lru_cache(maxsize=128)
+def _headline_lines(text: str, style: HeadlineStyle) -> tuple[int, tuple[str, ...]]:
+    """Wrap the headline into at most three lines, shrinking the letters until it fits."""
+    size, words = style.size, text.split(" ")
+    while True:
+        font = _font(style.weight, size)
+        lines, line = [], ""
+        for w in words:
+            trial = f"{line} {w}".strip()
+            if line and font.getlength(trial) > HEAD_MAX_W:
+                lines.append(line)
+                line = w
+            else:
+                line = trial
+        lines.append(line)
+        fits = len(lines) <= HEAD_MAX_LINES and all(font.getlength(l) <= HEAD_MAX_W for l in lines)
+        if fits or size * 0.94 < style.size * MIN_SHRINK:
+            return size, tuple(lines)
+        size = int(size * 0.94)
+
+
+def render_headline(text: str, style: HeadlineStyle) -> Image.Image:
+    """The headline card as a transparent picture the size of the overlay canvas."""
+    text = text.upper() if style.uppercase else text
+    size, lines = _headline_lines(text, style)
+    font = _font(style.weight, size)
+    ascent, descent = font.getmetrics()
+    line_h, gap = ascent + descent, int(size * 0.14)
+    block_h = len(lines) * line_h + (len(lines) - 1) * gap
+    widths = [font.getlength(l) for l in lines]
+    top = (HEAD_H - block_h) // 2
+    img = Image.new("RGBA", (HEAD_W, HEAD_H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    fill = style.text_color
+    if style.box in ("card", "banner"):
+        padx, pady = int(size * 0.6), int(size * 0.45)
+        left, right = (HEAD_W - max(widths)) / 2 - padx, (HEAD_W + max(widths)) / 2 + padx
+        box = (left, top - pady, right, top + block_h + pady + (int(size * 0.2) if style.box == "card" else 0))
+        if style.box == "card":
+            draw.rounded_rectangle(box, radius=int(size * 0.5), fill=(14, 14, 18, 190))
+            rule_w = min(max(widths) * 0.3, size * 3)
+            y = top + block_h + pady * 0.55
+            draw.rounded_rectangle(((HEAD_W - rule_w) / 2, y, (HEAD_W + rule_w) / 2, y + max(6, size * 0.09)),
+                                   radius=4, fill=style.accent_color)
+        else:
+            draw.rounded_rectangle(box, radius=int(size * 0.35), fill=style.accent_color)
+            fill = contrast_text(style.accent_color)        # readable on whatever colour was chosen
+
+    if style.shadow:
+        shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        sdraw = ImageDraw.Draw(shadow)
+        for i, line in enumerate(lines):
+            sdraw.text(((HEAD_W - widths[i]) / 2, top + i * (line_h + gap) + size * 0.06), line,
+                       font=font, fill=(0, 0, 0, 210))
+        img = Image.alpha_composite(img, shadow.filter(ImageFilter.GaussianBlur(size * 0.07)))
+        draw = ImageDraw.Draw(img)
+    edge = max(3, int(size * 0.06)) if style.box == "none" else 0     # no box: a dark edge keeps it readable
+    for i, line in enumerate(lines):
+        draw.text(((HEAD_W - widths[i]) / 2, top + i * (line_h + gap)), line, font=font, fill=fill,
+                  stroke_width=edge, stroke_fill=(15, 15, 18, 255))
+    return img
+
+
+@functools.lru_cache(maxsize=64)
+def headline_png(text: str, style: HeadlineStyle) -> bytes:
+    import io
+    out = io.BytesIO()
+    render_headline(text, style).save(out, "PNG")
+    return out.getvalue()
+
+
+@functools.lru_cache(maxsize=64)
+def headline_preview_png(text: str, style: HeadlineStyle) -> bytes:
+    """The headline over a neutral backdrop, for choosing a look before anything is rendered."""
+    import io
+    backdrop = Image.new("RGBA", (HEAD_W, HEAD_H))
+    d = ImageDraw.Draw(backdrop)
+    for y in range(HEAD_H):
+        shade = 70 + int(60 * y / HEAD_H)
+        d.line((0, y, HEAD_W, y), fill=(shade, shade + 4, shade + 14, 255))
+    out = io.BytesIO()
+    Image.alpha_composite(backdrop, render_headline(text, style)).convert("RGB").save(out, "PNG")
     return out.getvalue()

@@ -101,3 +101,33 @@ def test_broken_characters_are_removed_from_captions(tmp_path, monkeypatch):
     out = tr.transcribe(tmp_path / "v.mp4", tmp_path, "hi")
     assert "�" not in out["segments"][0]["text"]
     assert [x["word"].strip() for x in out["segments"][0]["words"]] == ["कि", "तु", "बरबाद"]
+
+
+# ---------------------------------------------------------------- confidence data is kept
+
+def test_confidence_figures_are_kept_for_the_quality_check(tmp_path, monkeypatch):
+    seg = [{"start": 0, "end": 3, "text": "Hello there", "avg_logprob": -0.31, "no_speech_prob": 0.02,
+            "compression_ratio": 1.3, "words": [dict(w("Hello", 0, 1), probability=0.93),
+                                                dict(w("there", 1.1, 2), probability=0.5)]},
+           {"start": 4, "end": 6, "text": "Thanks for watching", "avg_logprob": -1.4, "no_speech_prob": 0.8,
+            "compression_ratio": 1.0, "words": [w("Thanks", 4, 5)]}]
+    fake_whisper(monkeypatch, [], seg)
+    out = tr.transcribe(tmp_path / "v.mp4", tmp_path, "en")
+    assert [x.get("p") for x in out["segments"][0]["words"]] == [0.93, 0.5]
+    assert out["asr"] == [{"start": 0, "end": 3, "avg_logprob": -0.31, "no_speech_prob": 0.02,
+                           "compression_ratio": 1.3}]
+    assert out["dropped"] == [{"start": 4, "end": 6, "reason": "no speech"}]    # flagged by Whisper itself
+
+
+def test_words_without_a_probability_still_work(tmp_path, monkeypatch):
+    fake_whisper(monkeypatch, [], GOOD)
+    out = tr.transcribe(tmp_path / "v.mp4", tmp_path, "en")
+    assert all("p" not in word for word in out["segments"][0]["words"])
+    assert out["asr"][0]["avg_logprob"] == -0.2
+
+
+def test_garbage_reasons_are_named():
+    assert tr.garbage_reason({"text": "x", "compression_ratio": 3.0}) == "repetitive"
+    assert tr.garbage_reason({"text": "x", "no_speech_prob": 0.9, "avg_logprob": -1.5}) == "no speech"
+    assert tr.garbage_reason({"text": "aaaaaaaaaa"}) == "repeated characters"
+    assert tr.garbage_reason({"text": "fine", "compression_ratio": 1.2}) is None

@@ -8,9 +8,10 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app import captions, captionstyles, jobs, music, rights, ytdl
+from app import captions, captionstyles, jobs, music, rights, textmode, ytdl
 from app.llm import OLLAMA_MODEL
-from app.pipeline import Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_music
+from app.pipeline import (Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_music,
+                          set_clip_text)
 
 
 @asynccontextmanager
@@ -215,6 +216,8 @@ def confirm_checklist(job_id: str, clip_id: int, body: Checklist):
 def download_clip(job_id: str, clip_id: int):
     """The only way to get a file out. Needs the copyright checklist for this exact clip."""
     clip = _clip(job_id, clip_id)
+    if textmode.needs_decision(clip):
+        raise HTTPException(409, textmode.DECISION_NEEDED)
     if not rights.is_confirmed(job_id, clip):
         raise HTTPException(403, "Complete the copyright checklist for this clip first.")
     return FileResponse(_video_path(job_id, clip_id), media_type="video/mp4",
@@ -282,7 +285,10 @@ def caption_preview(request: Request):
 
 @app.get("/api/jobs/{job_id}/clips/{clip_id}/captions")
 def get_clip_captions(job_id: str, clip_id: int):
-    caps = _clip(job_id, clip_id).get("captions")
+    clip = _clip(job_id, clip_id)
+    if textmode.is_untrusted(clip):
+        raise HTTPException(409, textmode.CAPTIONS_UNAVAILABLE)
+    caps = clip.get("captions")
     if not caps:
         raise HTTPException(409, "This clip was made before captions could be changed. "
                                  "Make new clips from this video to edit its captions.")
@@ -303,6 +309,66 @@ def change_clip_captions(job_id: str, clip_id: int, body: CaptionEdit):
     try:
         return rights.enrich(job_id, set_clip_captions(job_id, clip_id, body.preset, body.style,
                                                        body.words))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+# ------------------------------------------------------------------ headlines and "no text"
+
+@app.get("/api/headline-presets")
+def headline_presets():
+    return {"presets": captionstyles.headline_preset_list(), "default": captionstyles.DEFAULT_HEADLINE_PRESET,
+            "weights": list(captionstyles.WEIGHTS), "boxes": list(captionstyles.HEADLINE_BOXES),
+            "limits": {k: list(v) for k, v in captionstyles.HEADLINE_LIMITS.items()},
+            "max_chars": captionstyles.HEADLINE_MAX_CHARS}
+
+
+@app.get("/api/headline-preview.png")
+def headline_preview(request: Request):
+    """A picture of a headline in a look, drawn by the same code that draws it on the video."""
+    params = dict(request.query_params)
+    preset = params.pop("preset", captionstyles.DEFAULT_HEADLINE_PRESET)
+    text = params.pop("text", captions.HEAD_SAMPLE)
+    try:
+        for key in ("size", "position", "seconds"):
+            if key in params:
+                params[key] = int(params[key])
+        for key in _BOOL_SETTINGS:
+            if key in params:
+                params[key] = params[key].lower() in ("1", "true", "yes")
+        style = captionstyles.resolve_headline(preset, params)
+        text = captionstyles.clean_headline(text)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return Response(captions.headline_preview_png(text, style), media_type="image/png")
+
+
+class HeadlineIn(BaseModel):
+    text: str
+    preset: str | None = None
+    style: dict = {}
+
+
+class TextChoice(BaseModel):
+    mode: str | None = None              # "captions", "none" (or "headline", which needs approve)
+    headline: HeadlineIn | None = None   # saved as a draft until approve is true
+    approve: bool = False                # the user previewed the headline and approves it
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/text")
+def choose_clip_text(job_id: str, clip_id: int, body: TextChoice):
+    """Choose what text a clip shows. A headline is a draft until approved: only then is it drawn.
+    Any change that redraws the clip is a new version, so its checklist must be confirmed again."""
+    _clips(job_id)
+    try:
+        headline = body.headline.model_dump() if body.headline else None
+        return rights.enrich(job_id, set_clip_text(job_id, clip_id, body.mode, headline, body.approve))
     except KeyError as e:
         raise HTTPException(404, str(e.args[0]))
     except ValueError as e:

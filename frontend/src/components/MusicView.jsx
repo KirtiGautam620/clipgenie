@@ -7,7 +7,7 @@ export default function MusicView({ library, onLibraryChange }) {
     <div className="cg-music-view-page">
       <div className="cg-music-view-header">
         <div>
-          <h1 className="cg-heading-lg">🎵 Music & Sound FX Library</h1>
+          <h1 className="cg-heading-lg">🎵 Music Library</h1>
           <p className="cg-text-secondary cg-text-sm" style={{ marginTop: 4 }}>
             Local audio tracks with automated speech-ducking. Only licensed, copyright-safe audio is used.
           </p>

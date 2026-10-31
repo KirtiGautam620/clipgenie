@@ -40,7 +40,7 @@ export default function SettingsView({ health }) {
             <div className="cg-settings-info">
               <span className="cg-settings-label">Ollama Local LLM Server</span>
               <span className="cg-text-xs cg-text-muted">
-                Highlight selection, scene boundary detection, and copilot reasoning.
+                Picks the most engaging moments in your video.
               </span>
             </div>
             <span className={`cg-badge ${ollamaOk ? 'cg-badge--success' : 'cg-badge--warning'}`}>
@@ -52,17 +52,17 @@ export default function SettingsView({ health }) {
             <div className="cg-settings-info">
               <span className="cg-settings-label">Whisper MLX Transcription</span>
               <span className="cg-text-xs cg-text-muted">
-                Hardware-accelerated word-by-word timestamp extraction via Apple Silicon Metal.
+                Turns speech into text with the time of each word, on this Mac (Apple Silicon).
               </span>
             </div>
-            <span className="cg-badge cg-badge--success">Apple Metal Ready ✓</span>
+            <span className="cg-badge cg-badge--muted">Runs on this Mac</span>
           </div>
 
           <div className="cg-settings-item">
             <div className="cg-settings-info">
               <span className="cg-settings-label">FFmpeg Video Engine</span>
               <span className="cg-text-xs cg-text-muted">
-                Hardware-accelerated H.264/HEVC encoding, crop filtering, and audio ducking.
+                Cuts and crops the video to 9:16, draws the text, levels your voice and mixes the music.
               </span>
             </div>
             <span className={`cg-badge ${ffmpegOk ? 'cg-badge--success' : 'cg-badge--error'}`}>
