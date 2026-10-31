@@ -1,0 +1,130 @@
+.cg-export-studio-modal {
+  max-width: 620px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cg-space-4);
+  overflow-y: auto;
+  border-radius: var(--cg-radius-md);
+  padding: 20px;
+}
+
+.cg-export-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--cg-bg-inset);
+  padding: 10px 14px;
+  border-radius: var(--cg-radius-sm);
+  border: 1px solid var(--cg-border-subtle);
+}
+
+.cg-export-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.cg-export-option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cg-checklist-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cg-export-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cg-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--cg-bg-surface);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-xs);
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+}
+
+.cg-checklist-item:hover {
+  background: var(--cg-bg-raised);
+}
+
+.cg-checklist-item--checked {
+  border-color: var(--cg-success);
+}
+
+.cg-checklist-radio {
+  margin-top: 2px;
+}
+
+.cg-checklist-box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--cg-border-strong);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: white;
+  margin-top: 2px;
+}
+.cg-checklist-box--checked {
+  background: var(--cg-success);
+  border-color: var(--cg-success);
+}
+
+.cg-checklist-text {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--cg-text-secondary);
+}
+.cg-checklist-item--checked .cg-checklist-text {
+  color: var(--cg-text-primary);
+}
+
+.cg-meta-preview-box {
+  background: var(--cg-bg-surface);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-xs);
+  padding: 8px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--cg-text-secondary);
+}
+
+.cg-meta-preview-title {
+  color: var(--cg-text-primary);
+  margin: 0;
+}
+
+.cg-meta-preview-desc,
+.cg-meta-preview-credits {
+  margin: 0;
+  font-family: var(--cg-font-mono);
+  font-size: 10px;
+}
+
+.cg-export-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .cg-export-options-grid {
+    grid-template-columns: 1fr;
+  }
+}

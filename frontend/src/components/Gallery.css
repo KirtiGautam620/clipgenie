@@ -1,0 +1,73 @@
+.cg-gallery-page {
+  padding-top: var(--cg-space-8);
+}
+
+.cg-gallery-layout {
+  align-items: start;
+}
+
+.cg-gallery-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cg-space-4);
+  position: sticky;
+  top: 72px;
+}
+
+.cg-gallery-sidebar-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cg-space-4);
+  padding: var(--cg-space-5);
+}
+
+.cg-gallery-sidebar-title {
+  color: var(--cg-text-primary);
+}
+
+.cg-gallery-range-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cg-space-2);
+}
+
+.cg-gallery-disclaimer {
+  margin-top: var(--cg-space-8);
+  padding-top: var(--cg-space-4);
+  border-top: 1px solid var(--cg-border-subtle);
+  line-height: var(--cg-leading-relaxed);
+}
+
+@media (max-width: 900px) {
+  .cg-gallery-sidebar {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .cg-gallery-sidebar-card {
+    flex: 1;
+    min-width: 240px;
+  }
+}
+
+
+/* Sidebar + clip grid layout */
+.cg-two-panel {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--cg-space-6);
+}
+
+/* Clip cards: fixed-width columns so 9:16 videos stay a sensible size */
+.cg-grid-clips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
+  gap: var(--cg-space-5);
+  justify-content: start;
+}
+
+@media (max-width: 900px) {
+  .cg-two-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

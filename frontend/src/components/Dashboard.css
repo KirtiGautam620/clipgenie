@@ -1,0 +1,108 @@
+.cg-dashboard {
+  gap: var(--cg-space-6);
+  padding: 40px 20px;
+}
+
+.cg-dashboard-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cg-space-3);
+  max-width: 540px;
+  width: 100%;
+}
+
+.cg-dashboard-logo-glow {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.cg-dashboard-tagline {
+  font-size: var(--cg-text-base);
+  text-align: center;
+  max-width: 420px;
+  line-height: var(--cg-leading-normal);
+  color: var(--cg-text-secondary);
+}
+
+.cg-dashboard-cta {
+  margin-top: var(--cg-space-2);
+}
+
+.cg-dashboard-alert {
+  width: 100%;
+  max-width: 480px;
+  text-align: left;
+}
+
+.cg-code {
+  font-family: var(--cg-font-mono);
+  font-size: 0.88em;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  padding: 1px 4px;
+  border-radius: var(--cg-radius-xs);
+  color: var(--cg-text-primary);
+}
+
+/* Resume card */
+.cg-dashboard-resume {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cg-space-3);
+  padding: var(--cg-space-3) var(--cg-space-4);
+  max-width: 440px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--cg-border-default);
+  background: var(--cg-bg-surface);
+  border-radius: var(--cg-radius-md);
+  font-family: inherit;
+}
+.cg-dashboard-resume:hover {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-border-strong);
+}
+
+.cg-dashboard-resume-left {
+  display: flex;
+  align-items: center;
+  gap: var(--cg-space-3);
+}
+
+.cg-dashboard-resume-icon {
+  font-size: 1.2rem;
+  color: var(--cg-accent);
+  flex-shrink: 0;
+}
+
+.cg-dashboard-resume-label {
+  font-size: var(--cg-text-sm);
+  font-weight: var(--cg-weight-semibold);
+  color: var(--cg-text-primary);
+  margin: 0;
+}
+
+/* Feature pills */
+.cg-dashboard-features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 520px;
+}
+
+.cg-dashboard-feature-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--cg-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cg-text-muted);
+  border: 1px solid var(--cg-border-subtle);
+  background: var(--cg-bg-surface);
+}

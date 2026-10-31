@@ -1,0 +1,51 @@
+.cg-settings-page {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cg-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cg-settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 800px;
+}
+
+.cg-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cg-settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-subtle);
+  border-radius: var(--cg-radius-md);
+}
+
+.cg-settings-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cg-settings-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cg-text-primary);
+}
+

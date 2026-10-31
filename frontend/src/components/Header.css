@@ -1,0 +1,15 @@
+/* Header extra styles — base in global.css */
+.cg-header-logo {
+  user-select: none;
+  font-family: var(--cg-font-display);
+}
+
+.cg-header-nav {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .cg-pill { display: none; }
+  .cg-pill:first-child { display: inline-flex; } /* keep server status */
+}
+

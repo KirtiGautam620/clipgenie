@@ -1,0 +1,100 @@
+.cg-export-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cg-space-5);
+  outline: none;
+}
+
+.cg-export-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Checklist */
+.cg-export-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cg-space-3);
+}
+
+.cg-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cg-space-3);
+  padding: var(--cg-space-4);
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-md);
+  cursor: pointer;
+  transition: background var(--cg-transition-fast), border-color var(--cg-transition-fast);
+  user-select: none;
+}
+.cg-checklist-item:hover {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-border-strong);
+}
+.cg-checklist-item--checked {
+  background: var(--cg-success-muted);
+  border-color: rgba(34, 201, 122, 0.3);
+}
+
+.cg-checklist-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cg-checklist-box {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--cg-border-strong);
+  border-radius: var(--cg-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: var(--cg-weight-bold);
+  color: white;
+  background: transparent;
+  transition: background var(--cg-transition-fast), border-color var(--cg-transition-fast);
+  margin-top: 1px;
+}
+.cg-checklist-box--checked {
+  background: var(--cg-success);
+  border-color: var(--cg-success);
+}
+
+.cg-checklist-text {
+  color: var(--cg-text-secondary);
+  line-height: var(--cg-leading-relaxed);
+}
+.cg-checklist-item--checked .cg-checklist-text {
+  color: var(--cg-text-primary);
+}
+
+/* Actions */
+.cg-export-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cg-space-3);
+  flex-wrap: wrap;
+}
+
+.cg-export-disclaimer {
+  line-height: var(--cg-leading-relaxed);
+  padding-top: var(--cg-space-2);
+  border-top: 1px solid var(--cg-border-subtle);
+}
+
+@media (max-width: 480px) {
+  .cg-export-modal-actions {
+    flex-direction: column-reverse;
+  }
+  .cg-export-modal-actions .cg-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+

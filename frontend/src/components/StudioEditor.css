@@ -1,0 +1,403 @@
+/* ═════════════════════════════════════════════════════════════════════
+   ClipGenie Pro Creative Studio Workspace
+   ═════════════════════════════════════════════════════════════════════ */
+
+.cg-studio-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--cg-bg-canvas);
+  color: var(--cg-text-primary);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── Top Navigation Bar ─────────────────────────────────────────────── */
+.cg-studio-topbar {
+  height: 42px;
+  background: var(--cg-bg-surface);
+  border-bottom: 1px solid var(--cg-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.cg-studio-topbar-left,
+.cg-studio-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cg-studio-project-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cg-text-primary);
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Mode Switcher (Clean, Not Pill) ────────────────────────────────── */
+.cg-mode-switcher {
+  display: inline-flex;
+  background: var(--cg-bg-inset);
+  padding: 2px;
+  border-radius: var(--cg-radius-sm);
+  border: 1px solid var(--cg-border-default);
+}
+
+.cg-mode-btn {
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--cg-radius-xs);
+  color: var(--cg-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+}
+
+.cg-mode-btn.active {
+  background: var(--cg-bg-raised);
+  color: var(--cg-text-primary);
+  font-weight: 600;
+}
+
+/* ── Quick Mode Container ───────────────────────────────────────────── */
+.cg-quick-mode-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--cg-bg-canvas);
+}
+
+.cg-quick-card {
+  max-width: 600px;
+  width: 100%;
+  background: var(--cg-bg-surface);
+  border: 1px solid var(--cg-border-subtle);
+  border-radius: var(--cg-radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cg-quick-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.cg-quick-preset-box {
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+}
+
+.cg-quick-preset-box:hover {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-border-strong);
+}
+
+.cg-quick-preset-box.active {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-accent);
+}
+
+.cg-quick-preset-icon {
+  font-size: 1.6rem;
+}
+
+.cg-quick-preset-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cg-text-primary);
+  margin: 0;
+}
+
+.cg-quick-actions-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ── Advanced 3-Pane Stage ──────────────────────────────────────────── */
+.cg-studio-stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 290px 1fr 300px;
+  min-height: 0;
+  background: var(--cg-bg-canvas);
+  overflow: hidden;
+}
+
+/* Left Panel */
+.cg-left-panel {
+  background: var(--cg-bg-surface);
+  border-right: 1px solid var(--cg-border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cg-panel-tabs {
+  display: flex;
+  background: var(--cg-bg-inset);
+  border-bottom: 1px solid var(--cg-border-subtle);
+}
+
+.cg-panel-tab {
+  flex: 1;
+  padding: 7px 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cg-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+  text-align: center;
+  border-bottom: 2px solid transparent;
+}
+
+.cg-panel-tab:hover {
+  color: var(--cg-text-primary);
+}
+
+.cg-panel-tab.active {
+  color: var(--cg-text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--cg-accent);
+  background: var(--cg-bg-surface);
+}
+
+.cg-panel-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Script-First Scene Sync */
+.cg-script-scenes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cg-script-scene-card {
+  padding: 8px 10px;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-xs);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all var(--cg-transition-fast);
+}
+
+.cg-script-scene-card:hover {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-border-strong);
+}
+
+.cg-script-scene-card.active {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-accent);
+}
+
+.cg-scene-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cg-scene-time-tag {
+  font-family: var(--cg-font-mono);
+  font-size: 10px;
+  color: var(--cg-text-secondary);
+}
+
+.cg-scene-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cg-text-primary);
+  margin: 0;
+}
+
+/* Center Viewport Stage (Clean, Quiet Background) */
+.cg-center-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--cg-bg-canvas);
+  position: relative;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.cg-viewport-container {
+  aspect-ratio: 9 / 16;
+  height: min(100%, 460px);
+  background: #000;
+  border-radius: var(--cg-radius-md);
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--cg-border-default);
+  overflow: hidden;
+}
+
+.cg-viewport-screen {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* PiP Overlay */
+.cg-viewport-broll-pip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 76px;
+  height: 100px;
+  background: rgba(16, 17, 21, 0.9);
+  border-radius: var(--cg-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+/* Kinetic Captions Overlay */
+.cg-viewport-overlay-caption {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.3;
+  color: #FFF;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 1px #000;
+  pointer-events: none;
+  z-index: 15;
+  transition: top 100ms ease;
+}
+
+/* Safe Zones Overlay */
+.cg-safe-zones-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  z-index: 20;
+}
+
+.cg-safe-zone-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: rgba(225, 29, 72, 0.08);
+  border-bottom: 1px dashed rgba(225, 29, 72, 0.3);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 3px 6px;
+}
+
+.cg-safe-zone-right {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  bottom: 80px;
+  width: 44px;
+  background: rgba(225, 29, 72, 0.08);
+  border-left: 1px dashed rgba(225, 29, 72, 0.3);
+  font-size: 9px;
+  writing-mode: vertical-rl;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 3px;
+}
+
+.cg-safe-zone-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: rgba(225, 29, 72, 0.08);
+  border-top: 1px dashed rgba(225, 29, 72, 0.3);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 3px 6px;
+}
+
+/* Transport Bar */
+.cg-transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  background: var(--cg-bg-surface);
+  padding: 3px 10px;
+  border-radius: var(--cg-radius-sm);
+  border: 1px solid var(--cg-border-default);
+}
+
+/* Right Panel */
+.cg-right-panel {
+  background: var(--cg-bg-surface);
+  border-left: 1px solid var(--cg-border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  overflow-y: auto;
+  gap: 10px;
+}
+
+.cg-inspector-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-subtle);
+  border-radius: var(--cg-radius-sm);
+}
+
+.cg-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cg-inspector-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

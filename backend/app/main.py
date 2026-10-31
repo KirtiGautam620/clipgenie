@@ -5,12 +5,12 @@ import urllib.request
 from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app import jobs, music, rights, ytdl
+from app import captions, captionstyles, jobs, music, rights, ytdl
 from app.llm import OLLAMA_MODEL
-from app.pipeline import DEFAULTS, run_clips_only, run_pipeline, set_clip_music
+from app.pipeline import Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_music
 
 
 @asynccontextmanager
@@ -243,6 +243,72 @@ def change_clip_music(job_id: str, clip_id: int, choice: MusicChoice):
         return rights.enrich(job_id, set_clip_music(job_id, clip_id, choice.track_id, choice.volume))
     except KeyError as e:
         raise HTTPException(404, str(e.args[0]))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+# ------------------------------------------------------------------ captions
+
+@app.get("/api/caption-presets")
+def caption_presets():
+    """The looks to choose from, and what each setting allows."""
+    return {"presets": captionstyles.preset_list(), "default": captionstyles.DEFAULT_PRESET,
+            "weights": list(captionstyles.WEIGHTS), "animations": list(captionstyles.ANIMATIONS),
+            "boxes": list(captionstyles.BOXES),
+            "limits": {k: list(v) for k, v in captionstyles.LIMITS.items()}}
+
+
+_INT_SETTINGS = ("size", "position", "words_per_line", "outline")
+_BOOL_SETTINGS = ("uppercase", "shadow")
+
+
+@app.get("/api/caption-preview.png")
+def caption_preview(request: Request):
+    """A picture of a caption look, drawn by the same code that draws the real captions."""
+    params = dict(request.query_params)
+    preset = params.pop("preset", captionstyles.DEFAULT_PRESET)
+    try:
+        for key in _INT_SETTINGS:
+            if key in params:
+                params[key] = int(params[key])
+        for key in _BOOL_SETTINGS:
+            if key in params:
+                params[key] = params[key].lower() in ("1", "true", "yes")
+        style = captionstyles.resolve(preset, params)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return Response(captions.preview_png(style), media_type="image/png")
+
+
+@app.get("/api/jobs/{job_id}/clips/{clip_id}/captions")
+def get_clip_captions(job_id: str, clip_id: int):
+    caps = _clip(job_id, clip_id).get("captions")
+    if not caps:
+        raise HTTPException(409, "This clip was made before captions could be changed. "
+                                 "Make new clips from this video to edit its captions.")
+    return caps
+
+
+class CaptionEdit(BaseModel):
+    preset: str | None = None            # choosing a look starts from that look's settings
+    style: dict = {}                     # settings to change (see /api/caption-presets)
+    words: list[str] | None = None       # corrected text of every caption word, in order
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/captions")
+def change_clip_captions(job_id: str, clip_id: int, body: CaptionEdit):
+    """Change the caption look or fix caption words. Only the captions are drawn again.
+    A new version of the clip, so its checklist must be confirmed again."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, set_clip_captions(job_id, clip_id, body.preset, body.style,
+                                                       body.words))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
     except RuntimeError as e:
         raise HTTPException(500, str(e))
 

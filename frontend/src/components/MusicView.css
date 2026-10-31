@@ -1,0 +1,19 @@
+.cg-music-view-page {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cg-music-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cg-music-view-card {
+  max-width: 800px;
+}
+

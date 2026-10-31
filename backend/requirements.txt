@@ -4,3 +4,4 @@ python-multipart
 pillow
 mlx-whisper
 yt-dlp
+opencv-python-headless>=4.10,<5

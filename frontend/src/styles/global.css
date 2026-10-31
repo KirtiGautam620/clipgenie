@@ -1,0 +1,645 @@
+/* ══════════════════════════════════════════════════════════
+   ClipGenie Global Styles — Professional Creative Suite
+   ══════════════════════════════════════════════════════════ */
+@import './tokens.css';
+
+/* ── Reset & Base ─────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px; /* Pro desktop tool standard */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--cg-font-body);
+  font-size: var(--cg-text-base);
+  font-weight: var(--cg-weight-regular);
+  line-height: var(--cg-leading-normal);
+  color: var(--cg-text-primary);
+  background: var(--cg-bg-canvas);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+img, video {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: var(--cg-accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: var(--cg-text-base);
+}
+
+/* ── Clean Focus Visible (No Glow) ────────────────────── */
+:focus-visible {
+  outline: 1px solid var(--cg-accent);
+  outline-offset: 1px;
+}
+
+/* ── Scrollbars ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--cg-bg-inset);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cg-border-default);
+  border-radius: var(--cg-radius-xs);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cg-border-strong);
+}
+
+/* ── Layout Shell ─────────────────────────────────────── */
+.cg-app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--cg-bg-canvas);
+}
+
+.cg-app-main-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--cg-bg-canvas);
+}
+
+.cg-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.cg-header {
+  display: flex;
+  align-items: center;
+  gap: var(--cg-space-4);
+  padding: 0 var(--cg-space-4);
+  background: var(--cg-bg-surface);
+  border-bottom: 1px solid var(--cg-border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 44px;
+}
+
+.cg-header-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--cg-text-base);
+  font-weight: var(--cg-weight-semibold);
+  color: var(--cg-text-primary);
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.cg-header-logo-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.cg-header-spacer {
+  flex: 1;
+}
+
+.cg-header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--cg-space-2);
+}
+
+.cg-main {
+  flex: 1;
+  padding: var(--cg-space-6) var(--cg-space-6);
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.cg-main--centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 44px);
+  text-align: center;
+}
+
+/* ── Typography helpers ───────────────────────────────── */
+.cg-heading-xl {
+  font-size: var(--cg-text-3xl);
+  font-weight: var(--cg-weight-bold);
+  line-height: var(--cg-leading-tight);
+  color: var(--cg-text-primary);
+  letter-spacing: -0.015em;
+}
+
+.cg-heading-lg {
+  font-size: var(--cg-text-2xl);
+  font-weight: var(--cg-weight-semibold);
+  line-height: var(--cg-leading-tight);
+  letter-spacing: -0.01em;
+}
+
+.cg-heading-md {
+  font-size: var(--cg-text-xl);
+  font-weight: var(--cg-weight-semibold);
+  line-height: var(--cg-leading-tight);
+}
+
+.cg-heading-sm {
+  font-size: var(--cg-text-base);
+  font-weight: var(--cg-weight-semibold);
+}
+
+.cg-text-secondary {
+  color: var(--cg-text-secondary);
+}
+
+.cg-text-muted {
+  color: var(--cg-text-muted);
+}
+
+.cg-text-sm {
+  font-size: var(--cg-text-sm);
+}
+
+.cg-text-xs {
+  font-size: var(--cg-text-xs);
+}
+
+/* ── Refined Buttons (No Pill Shapes, No Glow) ────────── */
+.cg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--cg-radius-md);
+  padding: 6px 14px;
+  font-size: var(--cg-text-sm);
+  font-weight: var(--cg-weight-medium);
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.cg-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cg-btn--primary {
+  background: var(--cg-accent);
+  color: var(--cg-text-on-accent);
+  border-color: var(--cg-accent);
+}
+.cg-btn--primary:hover:not(:disabled) {
+  background: var(--cg-accent-hover);
+  border-color: var(--cg-accent-hover);
+}
+
+.cg-btn--secondary {
+  background: var(--cg-bg-raised);
+  color: var(--cg-text-primary);
+  border-color: var(--cg-border-default);
+}
+.cg-btn--secondary:hover:not(:disabled) {
+  background: var(--cg-border-default);
+  border-color: var(--cg-border-strong);
+}
+
+.cg-btn--ghost {
+  background: transparent;
+  color: var(--cg-text-secondary);
+  border-color: transparent;
+}
+.cg-btn--ghost:hover:not(:disabled) {
+  background: var(--cg-bg-raised);
+  color: var(--cg-text-primary);
+}
+
+.cg-btn--danger {
+  background: var(--cg-error-muted);
+  color: var(--cg-error);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.cg-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.cg-btn--sm {
+  padding: 4px 10px;
+  font-size: var(--cg-text-xs);
+}
+
+.cg-btn--lg {
+  padding: 9px 20px;
+  font-size: var(--cg-text-base);
+  font-weight: var(--cg-weight-semibold);
+}
+
+.cg-btn--icon {
+  padding: 5px;
+  border-radius: var(--cg-radius-sm);
+}
+
+/* ── Cards & Panels (Crisp 1px Borders) ───────────────── */
+.cg-card {
+  background: var(--cg-bg-surface);
+  border: 1px solid var(--cg-border-subtle);
+  border-radius: var(--cg-radius-lg);
+  padding: var(--cg-space-4);
+}
+
+.cg-card--interactive {
+  cursor: pointer;
+  transition: background var(--cg-transition-fast), border-color var(--cg-transition-fast);
+}
+.cg-card--interactive:hover {
+  background: var(--cg-bg-raised);
+  border-color: var(--cg-border-default);
+}
+
+/* ── Inputs ───────────────────────────────────────────── */
+.cg-input {
+  width: 100%;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-sm);
+  padding: 7px 10px;
+  color: var(--cg-text-primary);
+  font-size: var(--cg-text-sm);
+  font-family: inherit;
+  transition: border-color var(--cg-transition-fast);
+  outline: none;
+}
+.cg-input:focus {
+  border-color: var(--cg-accent);
+}
+.cg-input::placeholder {
+  color: var(--cg-text-muted);
+}
+
+.cg-select {
+  width: 100%;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-sm);
+  padding: 7px 10px;
+  color: var(--cg-text-primary);
+  font-size: var(--cg-text-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--cg-transition-fast);
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.cg-select:focus {
+  border-color: var(--cg-accent);
+}
+
+.cg-label {
+  display: block;
+  font-size: var(--cg-text-xs);
+  font-weight: var(--cg-weight-medium);
+  color: var(--cg-text-secondary);
+  margin-bottom: 4px;
+}
+
+.cg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Toggle Switch (Clean, Not Oversized) ─────────────── */
+.cg-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cg-space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cg-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cg-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  background: var(--cg-border-default);
+  border-radius: var(--cg-radius-full);
+  transition: background var(--cg-transition-fast);
+  flex-shrink: 0;
+}
+
+.cg-toggle input:checked ~ .cg-toggle-track {
+  background: var(--cg-accent);
+}
+
+.cg-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform var(--cg-transition-fast);
+}
+
+.cg-toggle input:checked ~ .cg-toggle-track::after {
+  transform: translateX(16px);
+}
+
+.cg-toggle-label {
+  font-size: var(--cg-text-xs);
+  font-weight: var(--cg-weight-medium);
+  color: var(--cg-text-secondary);
+}
+
+/* ── Badges (Flat, Muted, No Glow) ────────────────────── */
+.cg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--cg-radius-sm);
+  font-size: var(--cg-text-xs);
+  font-weight: var(--cg-weight-medium);
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--cg-bg-raised);
+  border: 1px solid var(--cg-border-default);
+  color: var(--cg-text-secondary);
+}
+
+.cg-badge--accent {
+  background: var(--cg-accent-muted);
+  border-color: rgba(47, 104, 246, 0.3);
+  color: #729BFD;
+}
+
+.cg-badge--success {
+  background: var(--cg-success-muted);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--cg-success);
+}
+
+.cg-badge--warning {
+  background: var(--cg-warning-muted);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--cg-warning);
+}
+
+.cg-badge--error {
+  background: var(--cg-error-muted);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--cg-error);
+}
+
+.cg-badge--score {
+  background: #254B8C;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-weight: 600;
+}
+
+/* ── Status Pills (Header) ────────────────────────────── */
+.cg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--cg-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-subtle);
+  color: var(--cg-text-secondary);
+}
+
+.cg-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cg-pill--ok .cg-pill-dot    { background: var(--cg-success); }
+.cg-pill--warn .cg-pill-dot  { background: var(--cg-warning); }
+.cg-pill--error .cg-pill-dot { background: var(--cg-error); }
+
+/* ── Alert Banners ────────────────────────────────────── */
+.cg-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cg-space-2);
+  padding: 8px 12px;
+  border-radius: var(--cg-radius-sm);
+  font-size: var(--cg-text-xs);
+  line-height: var(--cg-leading-normal);
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+}
+
+.cg-alert--warn {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--cg-warning);
+}
+
+.cg-alert--error {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--cg-error);
+}
+
+.cg-alert--info {
+  border-color: rgba(56, 189, 248, 0.3);
+  color: var(--cg-info);
+}
+
+/* ── Tab Bar ──────────────────────────────────────────── */
+.cg-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-subtle);
+  border-radius: var(--cg-radius-sm);
+  padding: 2px;
+}
+
+.cg-tab {
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--cg-text-secondary);
+  font-size: var(--cg-text-xs);
+  font-weight: var(--cg-weight-medium);
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+}
+
+.cg-tab--active {
+  background: var(--cg-bg-surface);
+  color: var(--cg-text-primary);
+  font-weight: 600;
+}
+
+/* ── Tool Pill Button ─────────────────────────────────── */
+.cg-tool-pill {
+  background: var(--cg-bg-surface);
+  border: 1px solid var(--cg-border-default);
+  color: var(--cg-text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--cg-radius-sm);
+  cursor: pointer;
+  transition: all var(--cg-transition-fast);
+}
+.cg-tool-pill:hover {
+  background: var(--cg-bg-raised);
+  color: var(--cg-text-primary);
+}
+.cg-tool-pill.active {
+  background: var(--cg-accent-muted);
+  border-color: var(--cg-accent);
+  color: #729BFD;
+}
+.cg-tool-pill--danger {
+  color: var(--cg-error);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ── Modal Backdrop & Window ──────────────────────────── */
+.cg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--cg-space-4);
+}
+
+.cg-modal {
+  background: var(--cg-bg-surface);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-lg);
+  padding: var(--cg-space-6);
+  max-width: 580px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--cg-shadow-lg);
+}
+
+/* ── Number Stepper ───────────────────────────────────── */
+.cg-number-input {
+  display: flex;
+  align-items: center;
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-sm);
+  overflow: hidden;
+  width: fit-content;
+}
+
+.cg-number-input button {
+  background: none;
+  border: none;
+  color: var(--cg-text-secondary);
+  font-size: 1rem;
+  width: 28px;
+  height: 30px;
+  cursor: pointer;
+  transition: background var(--cg-transition-fast);
+}
+.cg-number-input button:hover:not(:disabled) {
+  background: var(--cg-bg-raised);
+  color: var(--cg-text-primary);
+}
+.cg-number-input button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cg-number-input span {
+  min-width: 28px;
+  text-align: center;
+  font-size: var(--cg-text-xs);
+  font-weight: var(--cg-weight-semibold);
+  color: var(--cg-text-primary);
+}
+
+/* ── Spinner ──────────────────────────────────────────── */
+.cg-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--cg-border-default);
+  border-top-color: var(--cg-accent);
+  border-radius: 50%;
+  animation: cg-spin 0.7s linear infinite;
+}
+
+@keyframes cg-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Clean text replacement for gradient text */
+.cg-gradient-text {
+  color: var(--cg-accent);
+  font-weight: 700;
+}

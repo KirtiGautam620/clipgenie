@@ -1,0 +1,273 @@
+/* ═════════════════════════════════════════════════════════════════════
+   ClipGenie Professional Multi-Track Timeline
+   ═════════════════════════════════════════════════════════════════════ */
+
+.cg-timeline-dock {
+  background: var(--cg-bg-surface);
+  border-top: 1px solid var(--cg-border-subtle);
+  display: flex;
+  flex-direction: column;
+  height: 230px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────────────── */
+.cg-timeline-toolbar {
+  height: 36px;
+  background: var(--cg-bg-raised);
+  border-bottom: 1px solid var(--cg-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.cg-timeline-tools-left,
+.cg-timeline-tools-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cg-timeline-time-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--cg-bg-inset);
+  padding: 3px 8px;
+  border-radius: var(--cg-radius-xs);
+  font-family: var(--cg-font-mono);
+  font-size: 11px;
+  border: 1px solid var(--cg-border-default);
+}
+
+.cg-time-current {
+  color: var(--cg-text-primary);
+  font-weight: 600;
+}
+.cg-time-sep {
+  color: var(--cg-text-muted);
+}
+.cg-time-total {
+  color: var(--cg-text-secondary);
+}
+
+.cg-timeline-divider-v {
+  width: 1px;
+  height: 16px;
+  background: var(--cg-border-default);
+  margin: 0 2px;
+}
+
+/* ── Scroll Area Layout ─────────────────────────────────────────────── */
+.cg-timeline-scroll-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--cg-bg-inset);
+}
+
+/* Left Track Headers Column (Fixed) */
+.cg-timeline-headers-col {
+  width: 110px;
+  background: var(--cg-bg-surface);
+  border-right: 1px solid var(--cg-border-subtle);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.cg-track-header-top {
+  height: 22px;
+  background: var(--cg-bg-surface);
+  border-bottom: 1px solid var(--cg-border-subtle);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--cg-text-muted);
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+}
+
+.cg-track-header {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cg-text-secondary);
+  border-bottom: 1px solid var(--cg-border-subtle);
+}
+
+.cg-track-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cg-track-dot--broll    { background: var(--cg-track-broll); }
+.cg-track-dot--video    { background: var(--cg-track-video); }
+.cg-track-dot--captions { background: var(--cg-track-captions); }
+.cg-track-dot--music    { background: var(--cg-track-music); }
+.cg-track-dot--sfx      { background: var(--cg-track-sfx); }
+.cg-track-dot--effects  { background: var(--cg-track-effects); }
+
+/* Right Canvas Scrollable Area */
+.cg-timeline-canvas-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  background: var(--cg-bg-inset);
+}
+
+/* Ruler */
+.cg-timeline-ruler {
+  height: 22px;
+  background: var(--cg-bg-surface);
+  border-bottom: 1px solid var(--cg-border-subtle);
+  position: relative;
+}
+
+.cg-ruler-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cg-ruler-line {
+  height: 6px;
+  width: 1px;
+  background: var(--cg-border-default);
+}
+
+.cg-ruler-label {
+  font-family: var(--cg-font-mono);
+  font-size: 9px;
+  color: var(--cg-text-muted);
+  margin-left: 2px;
+}
+
+/* Lanes Area */
+.cg-timeline-lanes-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.cg-timeline-lane {
+  height: 28px;
+  position: relative;
+  border-bottom: 1px solid var(--cg-border-subtle);
+}
+
+/* Timeline Item Blocks (Flat, Desaturated, Sharp) */
+.cg-timeline-block {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: var(--cg-radius-xs);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #F1F3F7;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color var(--cg-transition-fast), filter var(--cg-transition-fast);
+}
+
+.cg-timeline-block:hover {
+  filter: brightness(1.1);
+}
+
+.cg-timeline-block.selected {
+  border-color: #FFFFFF;
+  box-shadow: 0 0 0 1px #FFFFFF;
+  z-index: 5;
+}
+
+.cg-block-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.cg-block-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Desaturated Stem Fills */
+.cg-timeline-block--broll {
+  background: var(--cg-track-broll);
+  border-color: #5E46A0;
+}
+
+.cg-timeline-block--video {
+  background: var(--cg-track-video);
+  border-color: #315FA8;
+}
+
+.cg-timeline-block--captions {
+  background: var(--cg-track-captions);
+  border-color: #A67B26;
+  color: #FFF;
+}
+
+.cg-timeline-block--music {
+  background: var(--cg-track-music);
+  border-color: #277353;
+}
+
+.cg-timeline-block--sfx {
+  background: var(--cg-track-sfx);
+  border-color: #2A6A80;
+}
+
+.cg-timeline-block--effects {
+  background: var(--cg-track-effects);
+  border-color: #8C3060;
+}
+
+/* ── Playhead Needle ────────────────────────────────────────────────── */
+.cg-timeline-playhead {
+  position: absolute;
+  top: -22px;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.cg-playhead-cap {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 9px;
+  height: 12px;
+  background: var(--cg-playhead);
+  clip-path: polygon(0% 0%, 100% 0%, 100% 65%, 50% 100%, 0% 65%);
+}
+
+.cg-playhead-line {
+  position: absolute;
+  top: 12px;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--cg-playhead);
+}
