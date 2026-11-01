@@ -59,6 +59,15 @@ export default function Sidebar({
 
         <button
           type="button"
+          className={`cg-sidebar-item ${currentView === 'storyboard' ? 'active' : ''}`}
+          onClick={() => onNavigate('storyboard')}
+        >
+          <span className="cg-sidebar-icon">🎞️</span>
+          <span className="cg-sidebar-label">Storyboard</span>
+        </button>
+
+        <button
+          type="button"
           className={`cg-sidebar-item ${currentView === 'music' ? 'active' : ''}`}
           onClick={() => onNavigate('music')}
         >

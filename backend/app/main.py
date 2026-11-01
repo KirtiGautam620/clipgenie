@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app import captions, captionstyles, jobs, music, rights, textmode, ytdl
 from app.llm import OLLAMA_MODEL
+from app.storyboard.api import router as storyboard_router
 from app.pipeline import (Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_music,
                           set_clip_text)
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ClipGenie", lifespan=lifespan)
+app.include_router(storyboard_router)       # the optional Storyboard tool: its own routes, nothing shared
 
 LANGUAGES = {"auto": None, "en": "en", "hi": "hi"}
 FRAMINGS = ("crop", "blur")

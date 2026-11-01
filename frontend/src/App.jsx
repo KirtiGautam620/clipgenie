@@ -8,12 +8,13 @@ import ProcessingScreen from './components/ProcessingScreen.jsx';
 import Gallery from './components/Gallery.jsx';
 import StudioEditor from './components/StudioEditor.jsx';
 import MusicView from './components/MusicView.jsx';
+import StoryboardView from './components/StoryboardView.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import ExportStudioModal from './components/ExportStudioModal.jsx';
 import './styles/global.css';
 
 // ── Screens / Views ─────────────────────────────────────────
-// home | create | processing | gallery | studio | music | settings
+// home | create | processing | gallery | studio | storyboard | music | settings
 const SAVED_JOB = 'clipgenie.lastJob';
 
 export default function App() {
@@ -256,6 +257,9 @@ export default function App() {
             onClipUpdated={handleClipUpdated}
           />
         )}
+
+        {/* The optional Storyboard tool (its own screen and API; the Shorts flow never touches it) */}
+        {view === 'storyboard' && <StoryboardView />}
 
         {/* 6. Music Library */}
         {view === 'music' && (
