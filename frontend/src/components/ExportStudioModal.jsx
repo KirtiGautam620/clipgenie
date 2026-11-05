@@ -72,7 +72,7 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
       <div className="cg-modal cg-export-studio-modal" ref={dialogRef} tabIndex={-1}>
         <div className="cg-export-modal-header">
           <div>
-            <h2 className="cg-heading-md">📤 Export Short Studio</h2>
+            <h2 className="cg-heading-md">Export Short Studio</h2>
             <span className="cg-text-xs cg-text-muted">Vertical 9:16 MP4, 1080 × 1920</span>
           </div>
           <button className="cg-btn cg-btn--icon cg-btn--secondary" onClick={onClose} aria-label="Close">
@@ -89,7 +89,7 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
         {/* 2. Copyright Verification Checklist */}
         <div className="cg-export-section">
           <div className="cg-checklist-title-row">
-            <label className="cg-label">📋 Copyright & Rights Verification</label>
+            <label className="cg-label">Copyright & Rights Verification</label>
             <span className="cg-badge cg-badge--warning">Required before download</span>
           </div>
           <p className="cg-text-xs cg-text-muted" style={{ marginBottom: 8 }}>
@@ -124,13 +124,13 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
         {/* 3. Social Publishing Metadata */}
         <div className="cg-export-section">
           <div className="cg-checklist-title-row">
-            <label className="cg-label">📱 Social Metadata & Attribution</label>
+            <label className="cg-label">Social Metadata & Attribution</label>
             <button
               type="button"
               className="cg-btn cg-btn--sm cg-btn--secondary"
               onClick={handleCopyMeta}
             >
-              {copiedMeta ? '✓ Copied' : '📋 Copy All Metadata'}
+              {copiedMeta ? '✓ Copied' : 'Copy All Metadata'}
             </button>
           </div>
           <div className="cg-meta-preview-box">
@@ -144,7 +144,6 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
 
         {needsDecision && (
           <div className="cg-alert cg-alert--warn" role="alert">
-            <span className="cg-alert-icon">⚠️</span>
             <span>
               The speech in this clip could not be trusted, so it has no captions. Choose a headline of
               your own, or export without text, before downloading.
@@ -158,7 +157,6 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
 
         {error && (
           <div className="cg-alert cg-alert--error" role="alert">
-            <span className="cg-alert-icon">⚠️</span>
             <span>{error}</span>
           </div>
         )}
@@ -171,7 +169,7 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
             download
             title="Download JSON provenance record"
           >
-            🗒 Rights Report (JSON)
+            Rights Report (JSON)
           </a>
           <div style={{ flex: 1 }} />
           <button className="cg-btn cg-btn--secondary" onClick={onClose} disabled={busy}>

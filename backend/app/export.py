@@ -11,6 +11,7 @@ from pathlib import Path
 from app.audiofx import voice_filter
 from app.captions import headline_png, headline_y, render_track, strip_y, words_in_clip
 from app.captionstyles import CaptionStyle, HeadlineStyle, resolve
+from app.effects import zoom_filter
 from app.framing import Plan, crop_x_expression, plan_for_clip
 
 OUT_W, OUT_H = 1080, 1920
@@ -109,14 +110,10 @@ def apply_no_text(base: Path, out: Path) -> None:
     shutil.copyfile(base, out)
 
 
-def export_clip(video: Path, words: list[dict], start: float, end: float,
-                out: Path, work: Path, framing: str = "crop", clean_audio: bool = True,
-                style: CaptionStyle | None = None, cap_words: list[dict] | None = None) -> dict:
-    """Make one finished clip from video[start:end] (the caller picks padded cut points).
-
-    cap_words = the caption words (see captions.words_in_clip); made from `words` if not given.
-    Returns how the picture was framed, e.g. {"mode": "track", ...}, plus an "audio" report.
-    """
+def render_base(video: Path, start: float, end: float, base: Path, framing: str = "crop",
+                clean_audio: bool = True, effects: dict | None = None) -> dict:
+    """Stage 1 alone: picture (framed, with the optional zoom/pan effect) + voice, no captions.
+    Writes `base`. Returns how the picture was framed plus an "audio" report."""
     src_w, src_h = video_size(video)
     duration = end - start
     plan = None
@@ -124,18 +121,17 @@ def export_clip(video: Path, words: list[dict], start: float, end: float,
         plan = plan_for_clip(video, start, duration, src_w, src_h)   # find the speaker's face
         if plan.mode == "blur":       # several faces too far apart: show the whole picture
             framing = "blur"
-    if cap_words is None:
-        cap_words = words_in_clip(words, start, end)
 
-    # stage 1: picture + voice, no captions
-    graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[v]")
+    effect = zoom_filter(effects, duration, OUT_W, OUT_H)
+    graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]" if effect else "[v]")
+    if effect:                        # zoom/pan works on the framed 1080x1920 picture
+        graph += f";[vf]{effect},setsar=1[v]"
     audio_report = {"applied": False}
     voice = None
     if clean_audio:
         voice, audio_report = voice_filter(video, start, duration)
     if voice:
         graph += f";[0:a]{voice}[a]"
-    base = base_path(out)
     cmd = ["ffmpeg", "-loglevel", "error", "-y",
            "-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", str(video),
            "-filter_complex", graph, "-map", "[v]", "-map", "[a]" if voice else "0:a?",
@@ -146,11 +142,25 @@ def export_clip(video: Path, words: list[dict], start: float, end: float,
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"ffmpeg failed: {e.stderr[-400:]}") from e
-
-    # stage 2: captions
-    apply_captions(base, cap_words, style or resolve(), out, work)
     if plan is None:
         info = {"mode": framing, "reason": "portrait video or blur framing chosen"}
     else:
         info = plan.summary()
     return {**info, "audio": audio_report}
+
+
+def export_clip(video: Path, words: list[dict], start: float, end: float,
+                out: Path, work: Path, framing: str = "crop", clean_audio: bool = True,
+                style: CaptionStyle | None = None, cap_words: list[dict] | None = None,
+                effects: dict | None = None) -> dict:
+    """Make one finished clip from video[start:end] (the caller picks padded cut points).
+
+    cap_words = the caption words (see captions.words_in_clip); made from `words` if not given.
+    effects = optional zoom/pan (see effects.py). Returns how the picture was framed, e.g.
+    {"mode": "track", ...}, plus an "audio" report.
+    """
+    if cap_words is None:
+        cap_words = words_in_clip(words, start, end)
+    info = render_base(video, start, end, base_path(out), framing, clean_audio, effects)   # stage 1
+    apply_captions(base_path(out), cap_words, style or resolve(), out, work)                # stage 2
+    return info

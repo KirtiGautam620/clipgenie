@@ -50,8 +50,9 @@
   padding: 8px 10px;
   background: var(--cg-bg-surface);
   border: 1px solid var(--cg-border-default);
-  border-radius: var(--cg-radius-xs);
+  border-radius: var(--cg-radius-sm);
   cursor: pointer;
+  position: relative;
   transition: all var(--cg-transition-fast);
 }
 
@@ -63,8 +64,16 @@
   border-color: var(--cg-success);
 }
 
+/* The real checkbox stays in the page for keyboards and screen readers, but only the drawn box shows */
 .cg-checklist-radio {
-  margin-top: 2px;
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.cg-checklist-item:has(.cg-checklist-radio:focus-visible) {
+  outline: 2px solid var(--cg-sage);
+  outline-offset: 2px;
 }
 
 .cg-checklist-box {
@@ -75,9 +84,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: 10px;
   color: white;
   margin-top: 2px;
+  flex-shrink: 0;
 }
 .cg-checklist-box--checked {
   background: var(--cg-success);

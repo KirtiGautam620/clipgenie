@@ -13,3 +13,18 @@
   .cg-pill:first-child { display: inline-flex; } /* keep server status */
 }
 
+
+.cg-header-brand {
+  font-family: var(--cg-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--cg-forest-deep);
+}
+.cg-header-brand-accent {
+  color: var(--cg-sage);
+  font-style: italic;
+}
+
+/* The sidebar already carries the brand, so the top bar keeps just the status pills */
+.cg-header .cg-header-logo { display: none; }

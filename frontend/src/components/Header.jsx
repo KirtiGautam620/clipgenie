@@ -1,3 +1,4 @@
+import { LogoMark } from './Botanicals.jsx';
 import './Header.css';
 
 const HEALTH_PILLS = [
@@ -26,9 +27,9 @@ export default function Header({ health, musicCount, onLogoClick, currentScreen 
     <header className="cg-header">
       {/* Logo */}
       <button className="cg-header-logo" onClick={onLogoClick} aria-label="ClipGenie home">
-        <span className="cg-header-logo-icon">🎬</span>
-        <span>
-          Clip<span className="cg-gradient-text">Genie</span>
+        <LogoMark size={22} />
+        <span className="cg-header-brand">
+          Clip<span className="cg-header-brand-accent">Genie</span>
         </span>
       </button>
 

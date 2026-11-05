@@ -1,74 +1,94 @@
 /* ══════════════════════════════════════════════════════════
-   ClipGenie Design Tokens — Professional Creative Software
-   Matte Charcoal & Slate Palette with Studio Cobalt Accent
+   ClipGenie Design Tokens — Botanical Studio
+   Forest & sage greens on warm ivory and soft mint.
+   Every screen reads these tokens, so changing a value here
+   changes the whole app.
    ══════════════════════════════════════════════════════════ */
 
 :root {
+  /* ── Palette (named, so the intent stays readable) ───── */
+  --cg-forest:           #285D46;   /* primary: buttons, active states, headings accents */
+  --cg-forest-deep:      #1B4333;   /* hover / pressed, dark stage */
+  --cg-sage:             #55866B;   /* secondary green */
+  --cg-leaf:             #A9C49B;   /* light accent, illustrations */
+  --cg-mint:             #DCE9D8;   /* soft panels */
+  --cg-ivory:            #F5F3E9;   /* app background */
+  --cg-clay:             #B4472F;   /* the one warm accent: playhead, errors */
+  --cg-ochre:            #8A6A24;   /* warnings, caption track */
+
   /* ── Canvas & Workspace Surfaces ─────────────────────── */
-  --cg-bg-canvas:        #0D0E11;   /* Deepest application canvas */
-  --cg-bg-surface:       #14161B;   /* Sidebar, toolbars, main panel surfaces */
-  --cg-bg-raised:        #1B1E24;   /* Cards, active rows, hover states */
-  --cg-bg-overlay:       #22252D;   /* Modals, menus, popovers */
-  --cg-bg-inset:         #101115;   /* Timeline tracks, input wells */
+  --cg-bg-canvas:        var(--cg-ivory);
+  --cg-bg-surface:       #FBFAF4;   /* panels, sidebar, toolbars */
+  --cg-bg-raised:        #EAF1E4;   /* hover and selected rows (pale mint) */
+  --cg-bg-overlay:       #FFFFFF;   /* modals, menus */
+  --cg-bg-inset:         #EFF1E5;   /* input wells, timeline tracks */
+  --cg-bg-stage:         #17261F;   /* video preview stage: dark so footage reads true */
 
   /* Aliases for backwards compatibility */
   --cg-bg-deep:          var(--cg-bg-canvas);
 
-  /* ── Studio Hairline Borders ─────────────────────────── */
-  --cg-border-subtle:    #23262F;   /* 1px structural dividing lines */
-  --cg-border-default:   #2E323D;   /* Inputs, buttons, cards */
-  --cg-border-strong:    #424756;   /* Active / focused control boundary */
+  /* ── Hairline Borders ────────────────────────────────── */
+  --cg-border-subtle:    #DDE3D2;
+  --cg-border-default:   #CCD6C3;
+  --cg-border-strong:    #9FB19A;
   --cg-border-dim:       var(--cg-border-subtle);
   --cg-border-bright:    var(--cg-border-default);
 
-  /* ── Single Restrained Accent: Studio Cobalt ─────────── */
-  --cg-accent:           #2F68F6;   /* Studio Cobalt */
-  --cg-accent-hover:     #457BFA;
-  --cg-accent-muted:     rgba(47, 104, 246, 0.12);
-  --cg-accent-subdued:   #1E3D8F;
+  /* ── Accent: Forest ──────────────────────────────────── */
+  --cg-accent:           var(--cg-forest);
+  --cg-accent-hover:     var(--cg-forest-deep);
+  --cg-accent-muted:     rgba(40, 93, 70, 0.10);
+  --cg-accent-subdued:   var(--cg-mint);
+  --cg-accent-text:      #285D46;   /* accent used as text on light surfaces */
   --cg-primary:          var(--cg-accent);
   --cg-primary-hover:    var(--cg-accent-hover);
-  --cg-primary-glow:     transparent; /* No glowing borders */
+  --cg-primary-glow:     transparent; /* no glow */
 
   /* ── Timeline Playhead ───────────────────────────────── */
-  --cg-playhead:         #E11D48;   /* Precision studio needle */
+  --cg-playhead:         var(--cg-clay);
 
-  /* ── Muted Semantic Signals ──────────────────────────── */
-  --cg-success:          #22C55E;   /* Muted Emerald */
-  --cg-success-muted:    rgba(34, 197, 94, 0.12);
-  --cg-warning:          #F59E0B;   /* Muted Amber */
-  --cg-warning-muted:    rgba(245, 158, 11, 0.12);
-  --cg-error:            #EF4444;   /* Muted Ruby */
-  --cg-error-muted:      rgba(239, 68, 68, 0.12);
-  --cg-info:             #38BDF8;
-  --cg-info-muted:       rgba(56, 189, 248, 0.12);
+  /* ── Semantic Signals (muted, readable on ivory) ─────── */
+  --cg-success:          #2F7A4F;
+  --cg-success-muted:    rgba(47, 122, 79, 0.12);
+  --cg-warning:          #8F6410;
+  --cg-warning-muted:    rgba(143, 100, 16, 0.12);
+  --cg-error:            #A63A2B;
+  --cg-error-muted:      rgba(166, 58, 43, 0.10);
+  --cg-info:             #2F6F7E;
+  --cg-info-muted:       rgba(47, 111, 126, 0.12);
+  --cg-danger:           var(--cg-error);
 
-  /* ── Desaturated Timeline Stems (No Neon Rainbow) ────── */
-  --cg-track-video:      #254B8C;   /* Deep slate blue */
-  --cg-track-broll:      #4C3782;   /* Muted plum */
-  --cg-track-captions:   #85611B;   /* Muted ochre gold */
-  --cg-track-music:      #1E5C42;   /* Deep forest slate */
-  --cg-track-sfx:        #1F5466;   /* Muted teal slate */
-  --cg-track-effects:    #73264E;   /* Muted wine */
+  /* ── Timeline Tracks (earthy, no neon) ───────────────── */
+  --cg-track-video:      #285D46;
+  --cg-track-broll:      #55866B;
+  --cg-track-captions:   #8A6A24;
+  --cg-track-music:      #3D7A70;
+  --cg-track-sfx:        #5C7A86;
+  --cg-track-effects:    #8B5A44;
 
-  /* ── Typography & Readability ────────────────────────── */
-  --cg-font-display:     'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  --cg-font-body:        'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  --cg-font-mono:        'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  /* ── Subtle grid background ──────────────────────────── */
+  --cg-grid-line:        rgba(40, 93, 70, 0.055);
+  --cg-grid-size:        28px;
 
-  --cg-text-primary:     #F1F3F7;   /* Crisp readable white */
-  --cg-text-secondary:   #9CA3AF;   /* Subdued neutral slate */
-  --cg-text-muted:       #5F6676;   /* Low-emphasis, timestamps */
-  --cg-text-on-accent:   #FFFFFF;
+  /* ── Typography ──────────────────────────────────────── */
+  /* All system fonts: nothing to download or install. */
+  --cg-font-display:     'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --cg-font-body:        -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --cg-font-mono:        'SF Mono', Menlo, Consolas, monospace;
+
+  --cg-text-primary:     #1C2B23;
+  --cg-text-secondary:   #475A4F;
+  --cg-text-muted:       #64766B;
+  --cg-text-on-accent:   #F7F6EC;
 
   --cg-text-xs:          0.75rem;   /* 12px */
   --cg-text-sm:          0.8125rem; /* 13px */
   --cg-text-base:        0.875rem;  /* 14px */
   --cg-text-lg:          1rem;      /* 16px */
   --cg-text-xl:          1.125rem;  /* 18px */
-  --cg-text-2xl:         1.25rem;   /* 20px */
-  --cg-text-3xl:         1.5rem;    /* 24px */
-  --cg-text-4xl:         1.75rem;   /* 28px */
+  --cg-text-2xl:         1.375rem;  /* 22px */
+  --cg-text-3xl:         1.875rem;  /* 30px */
+  --cg-text-4xl:         2.25rem;   /* 36px */
 
   --cg-weight-regular:   400;
   --cg-weight-medium:    500;
@@ -89,24 +109,24 @@
   --cg-space-8:  32px;
   --cg-space-10: 40px;
 
-  /* ── Square & Soft-Square Ergonomics (4px - 6px) ─────── */
-  --cg-radius-xs:        3px;
-  --cg-radius-sm:        4px;
-  --cg-radius-md:        6px;
-  --cg-radius-lg:        8px;
-  --cg-radius-xl:        10px;
-  --cg-radius-full:      9999px;
+  /* ── Soft-rounded panels (buttons stay gently rounded, never pills) ── */
+  --cg-radius-xs:        4px;
+  --cg-radius-sm:        8px;
+  --cg-radius-md:        10px;
+  --cg-radius-lg:        16px;
+  --cg-radius-xl:        22px;
+  --cg-radius-full:      9999px;     /* only for toggles and status dots */
 
-  /* ── Flat, Restrained Shadows ────────────────────────── */
-  --cg-shadow-sm:        0 1px 2px rgba(0, 0, 0, 0.4);
-  --cg-shadow-md:        0 2px 6px rgba(0, 0, 0, 0.5);
-  --cg-shadow-lg:        0 4px 16px rgba(0, 0, 0, 0.6);
-  --cg-shadow-card:      0 1px 3px rgba(0, 0, 0, 0.3);
+  /* ── Quiet shadows (green-tinted, low opacity) ───────── */
+  --cg-shadow-sm:        0 1px 2px rgba(40, 93, 70, 0.06);
+  --cg-shadow-md:        0 4px 12px rgba(40, 93, 70, 0.08);
+  --cg-shadow-lg:        0 12px 32px rgba(27, 67, 51, 0.16);
+  --cg-shadow-card:      0 1px 2px rgba(40, 93, 70, 0.05);
 
-  /* ── Fast Transitions (No slow floating animation) ────── */
-  --cg-transition-fast:   100ms ease;
-  --cg-transition-normal: 150ms ease;
-  --cg-transition-slow:   250ms ease;
+  /* ── Transitions ─────────────────────────────────────── */
+  --cg-transition-fast:   120ms ease;
+  --cg-transition-normal: 180ms ease;
+  --cg-transition-slow:   260ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

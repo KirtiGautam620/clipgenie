@@ -62,7 +62,7 @@ export default function TextChoicePanel({ jobId, clip, onApplied, canUseCaptions
   if (loadError) {
     return (
       <div className="cg-panel-content">
-        <h3 className="cg-heading-sm">📝 Text</h3>
+        <h3 className="cg-heading-sm">Text</h3>
         <p className="cg-text-xs cg-caption-error">Could not load the headline looks: {loadError}</p>
       </div>
     );
@@ -103,7 +103,7 @@ export default function TextChoicePanel({ jobId, clip, onApplied, canUseCaptions
   return (
     <div className="cg-panel-content">
       <div className="cg-panel-header">
-        <h3 className="cg-heading-sm">📝 Text</h3>
+        <h3 className="cg-heading-sm">Text</h3>
         {mode === 'pending' && <span className="cg-badge cg-badge--warning">Needs your decision</span>}
         {mode === 'headline' && <span className="cg-badge cg-badge--muted">Headline</span>}
         {mode === 'none' && <span className="cg-badge cg-badge--muted">No text</span>}

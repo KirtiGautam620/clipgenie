@@ -7,8 +7,8 @@ import { buildTracks, FRAMING_LABELS } from '../studioTracks.js';
 import './StudioEditor.css';
 
 // Everything in this screen does what it says: what is shown comes from the clip's own data, and
-// every control changes the real video (captions, headline, music). Effects, AI visuals and an AI
-// assistant are not here because they are not built yet.
+// every control changes the real video (captions, headline, music, zoom and pan). AI visuals and an
+// AI assistant are not here because they are not built yet.
 
 function describeVoice(audio) {
   if (!audio?.applied) return 'As recorded';
@@ -16,6 +16,16 @@ function describeVoice(audio) {
     return 'As recorded (too quiet to level)';
   }
   return `Levelled to ${audio.target_lufs} LUFS${audio.denoised ? ', background noise reduced' : ''}`;
+}
+
+function describeZoom(effects) {
+  const zoom = effects?.zoom ?? 1;
+  const pan = effects?.pan || 'none';
+  if (zoom <= 1 && pan === 'none') return 'None';
+  const parts = [];
+  if (zoom > 1) parts.push(`slow zoom to ${zoom.toFixed(2)}×`);
+  if (pan !== 'none') parts.push(pan === 'left' ? 'slides left to right' : 'slides right to left');
+  return parts.join(', ');
 }
 
 function describeText(text) {
@@ -59,7 +69,7 @@ function MusicPanel({ jobId, clip, tracks, onApplied }) {
 
   return (
     <div className="cg-panel-content">
-      <h3 className="cg-heading-sm">🎵 Music</h3>
+      <h3 className="cg-heading-sm">Music</h3>
       <p className="cg-text-xs cg-text-muted">
         The music is lowered automatically while someone is speaking. Your voice is levelled separately.
       </p>
@@ -96,6 +106,74 @@ function MusicPanel({ jobId, clip, tracks, onApplied }) {
       <p className="cg-text-xs cg-text-muted">
         Changing the music makes a new version of this clip, so its copyright checklist must be ticked again.
       </p>
+    </div>
+  );
+}
+
+const PAN_LABELS = {
+  none: 'No pan',
+  left: 'Slide left to right',
+  right: 'Slide right to left',
+};
+
+function EffectsPanel({ jobId, clip, onApplied }) {
+  const [zoom, setZoom] = useState(clip.effects?.zoom ?? 1);
+  const [pan, setPan] = useState(clip.effects?.pan || 'none');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setZoom(clip.effects?.zoom ?? 1);
+    setPan(clip.effects?.pan || 'none');
+    setError('');
+  }, [clip.id, clip.version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const changed = Math.abs((clip.effects?.zoom ?? 1) - zoom) > 0.001
+    || (clip.effects?.pan || 'none') !== pan;
+
+  async function apply() {
+    setBusy(true);
+    setError('');
+    try {
+      const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/effects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zoom, pan }),
+      });
+      onApplied(updated);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="cg-panel-content">
+      <div className="cg-panel-header">
+        <h3 className="cg-heading-sm">Effects</h3>
+      </div>
+      <p className="cg-text-xs cg-text-muted">
+        A slow zoom and a sideways slide, applied to the picture only. Captions stay sharp.
+        Applying it makes the picture again, which takes a little while, and the clip needs its
+        checklist confirmed again.
+      </p>
+      <label className="cg-field">
+        <span className="cg-text-sm">Zoom: {zoom.toFixed(2)}×</span>
+        <input className="cg-range" type="range" min="1" max="1.5" step="0.05" value={zoom} disabled={busy}
+          onChange={(e) => setZoom(parseFloat(e.target.value))} />
+      </label>
+      <label className="cg-field">
+        <span className="cg-text-sm">Pan</span>
+        <select className="cg-select" value={pan} disabled={busy} onChange={(e) => setPan(e.target.value)}>
+          {Object.entries(PAN_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </label>
+      {error && <p className="cg-text-xs cg-text-error">{error}</p>}
+      <button type="button" className="cg-btn cg-btn--primary cg-btn--sm"
+        disabled={!changed || busy} onClick={apply}>
+        {busy ? 'Making the picture…' : 'Apply picture effects'}
+      </button>
     </div>
   );
 }
@@ -153,7 +231,7 @@ export default function StudioEditor({
         <div className="cg-studio-topbar-right">
           <button type="button" className={`cg-tool-pill ${showSafeZones ? 'active' : ''}`}
             onClick={() => setShowSafeZones(!showSafeZones)} title="Show where Shorts and Reels buttons cover the picture">
-            🛡️ Safe Zones
+            Safe Zones
           </button>
           <button type="button" className="cg-btn cg-btn--primary cg-btn--sm" onClick={() => setShowExportModal(true)}>
             Export Short ↓
@@ -164,7 +242,7 @@ export default function StudioEditor({
       <div className="cg-studio-stage">
         <aside className="cg-left-panel">
           <div className="cg-panel-tabs">
-            {[['text', '📝 Text'], ['captions', '💬 Captions'], ['audio', '🎵 Music']].map(([id, label]) => (
+            {[['text', 'Text'], ['captions', 'Captions'], ['picture', 'Effects'], ['audio', 'Music']].map(([id, label]) => (
               <button key={id} type="button" className={`cg-panel-tab ${leftTab === id ? 'active' : ''}`}
                 onClick={() => setLeftTab(id)}>
                 {label}
@@ -176,7 +254,7 @@ export default function StudioEditor({
             {leftTab === 'text' && (
               <div className="cg-panel-content">
                 <div className="cg-panel-header">
-                  <h3 className="cg-heading-sm">📝 Text on this clip</h3>
+                  <h3 className="cg-heading-sm">Text on this clip</h3>
                 </div>
                 <p className="cg-text-sm">
                   {clip.text?.mode === 'headline' && clip.text.headline?.text
@@ -200,6 +278,7 @@ export default function StudioEditor({
               </div>
             )}
             {leftTab === 'captions' && <CaptionsStylePanel jobId={jobId} clip={clip} onApplied={applied} />}
+            {leftTab === 'picture' && <EffectsPanel jobId={jobId} clip={clip} onApplied={applied} />}
             {leftTab === 'audio' && <MusicPanel jobId={jobId} clip={clip} tracks={musicTracks} onApplied={applied} />}
           </div>
         </aside>
@@ -247,6 +326,8 @@ export default function StudioEditor({
               <dd>{FRAMING_LABELS[framingMode] || 'Vertical 9:16'}</dd>
               <dt>Cuts</dt>
               <dd>{cutInPause ? 'Start and end sit in natural pauses' : 'Short lead-in and tail around the speech'}</dd>
+              <dt>Zoom</dt>
+              <dd>{describeZoom(clip.effects)}</dd>
               <dt>Voice</dt>
               <dd>{describeVoice(clip.audio)}</dd>
               <dt>Text</dt>
@@ -254,10 +335,12 @@ export default function StudioEditor({
               <dt>Music</dt>
               <dd>{clip.music ? `${clip.music.title}, ${Math.round((clip.music.volume ?? 0.6) * 100)}%` : 'None'}</dd>
             </dl>
-            <p className="cg-text-xs cg-text-muted">
-              More editing tools (effects, supporting visuals, an editing assistant) will appear here
-              when they are ready.
-            </p>
+            <p className="cg-text-xs cg-text-muted">Coming to the editor:</p>
+            <ul className="cg-soon-list">
+              <li>Transitions <span>Soon</span></li>
+              <li>AI visuals <span>Soon</span></li>
+              <li>Editing assistant <span>Soon</span></li>
+            </ul>
           </div>
         </aside>
       </div>

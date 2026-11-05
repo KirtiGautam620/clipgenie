@@ -21,7 +21,7 @@ export default function SettingsView({ health }) {
     <div className="cg-settings-page">
       <div className="cg-settings-header">
         <div>
-          <h1 className="cg-heading-lg">⚙️ Studio Settings & Diagnostics</h1>
+          <h1 className="cg-heading-lg">Studio Settings & Diagnostics</h1>
           <p className="cg-text-secondary cg-text-sm" style={{ marginTop: 4 }}>
             System configuration, local AI models, and storage cache controls.
           </p>
@@ -31,7 +31,7 @@ export default function SettingsView({ health }) {
       <div className="cg-settings-container">
         {/* 1. Local AI Diagnostics */}
         <section className="cg-card cg-settings-card">
-          <h2 className="cg-heading-sm">🧠 Local AI Engine Status</h2>
+          <h2 className="cg-heading-sm">Local AI Engine Status</h2>
           <p className="cg-text-xs cg-text-muted">
             ClipGenie executes 100% locally on your Apple Silicon Mac without cloud APIs.
           </p>
@@ -73,7 +73,7 @@ export default function SettingsView({ health }) {
 
         {/* 2. Storage Cache Management */}
         <section className="cg-card cg-settings-card">
-          <h2 className="cg-heading-sm">📁 Local Storage & Cache</h2>
+          <h2 className="cg-heading-sm">Local Storage & Cache</h2>
           <p className="cg-text-xs cg-text-muted">
             Videos and temporary rendering frames are stored locally in <code>data/</code> on your Mac.
           </p>
@@ -97,7 +97,7 @@ export default function SettingsView({ health }) {
 
         {/* 3. Legal & Copyright Architecture */}
         <section className="cg-card cg-settings-card">
-          <h2 className="cg-heading-sm">🛡️ Legal Provenance & Copyright</h2>
+          <h2 className="cg-heading-sm">Legal Provenance & Copyright</h2>
           <p className="cg-text-xs cg-text-muted">
             Short clips are not automatically copyright-free. ClipGenie generates cryptographically verifiable JSON rights reports alongside every export to safeguard content creators.
           </p>

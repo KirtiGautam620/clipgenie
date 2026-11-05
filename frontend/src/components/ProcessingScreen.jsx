@@ -1,3 +1,4 @@
+import { LogoMark } from './Botanicals.jsx';
 import './ProcessingScreen.css';
 
 const STEPS = [
@@ -34,7 +35,7 @@ export default function ProcessingScreen({ job, source, onNewVideo }) {
       <div className="cg-processing-card cg-card">
         {isError ? (
           <>
-            <div className="cg-processing-error-icon" aria-hidden="true">⚠️</div>
+            <div className="cg-processing-error-icon" aria-hidden="true">!</div>
             <h1 className="cg-heading-md">Something went wrong</h1>
             <p className="cg-text-secondary cg-text-sm" style={{ maxWidth: 400, textAlign: 'center' }}>
               {job?.error || 'An unexpected error occurred. Please try again.'}
@@ -49,7 +50,7 @@ export default function ProcessingScreen({ job, source, onNewVideo }) {
             <div className="cg-processing-hero" aria-live="polite">
               <div className="cg-processing-pulse" aria-hidden="true">
                 <span className="cg-processing-pulse-icon">
-                  {activeStep?.icon || '⏳'}
+                  <LogoMark size={34} />
                 </span>
               </div>
               <h1 className="cg-heading-md cg-processing-status">

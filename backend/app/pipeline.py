@@ -2,10 +2,11 @@
 import json
 import threading
 
-from app import captionstyles, cuts, jobs, music, quality, rights, textmode, ytdl
+from app import captionstyles, cuts, effects, hinglish, jobs, music, quality, rights, textmode, ytdl
 from app.captions import words_in_clip
 from app.clips import pick_clips
-from app.export import apply_captions, apply_headline, apply_no_text, base_path, export_clip
+from app.export import (apply_captions, apply_headline, apply_no_text, base_path, export_clip,
+                        render_base)
 from app.highlights import pick_ai_clips
 from app.mix import apply_music
 from app.transcribe import extract_audio, transcribe
@@ -15,7 +16,8 @@ from app.transcribe import extract_audio, transcribe
 heavy_job_lock = threading.Lock()
 
 DEFAULTS = {"min_len": 30, "max_len": 60, "count": 5, "use_ai": True, "framing": "crop",
-            "music": True, "music_volume": 0.6, "caption_preset": captionstyles.DEFAULT_PRESET}
+            "music": True, "music_volume": 0.6, "caption_preset": captionstyles.DEFAULT_PRESET,
+            "caption_script": "hinglish"}
 
 
 def _music_info(track: dict, volume: float) -> dict:
@@ -112,6 +114,8 @@ def set_clip_captions(job_id: str, clip_id: int, preset: str | None, overrides: 
         if any(not t or len(t) > 40 for t in cleaned):
             raise ValueError("Each caption word must be 1 to 40 characters.")
         words = [{**w, "text": t} for w, t in zip(words, cleaned)]
+    if style.script != caps["style"].get("script", "original"):   # Hindi letters <-> Hinglish
+        words = hinglish.convert_words(words, style.script)
 
     def draw(base, target):
         apply_captions(base, words, style, target, folder)
@@ -185,6 +189,49 @@ def set_clip_text(job_id: str, clip_id: int, mode: str | None, headline: dict | 
     return _redraw(job_id, clip_id, folder, clips_file, data, clip, out, draw)
 
 
+def set_clip_effects(job_id: str, clip_id: int, settings: dict) -> dict:
+    """Change the zoom and pan of one finished clip. The picture is made again from the source
+    video, then the same text (captions or headline) and music go back on top. A new version of
+    the clip, so its checklist must be confirmed again."""
+    folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
+    new = effects.normalize(settings)          # ValueError with a readable message if invalid
+    cut = clip.get("cut")
+    if not cut or not (folder / "source.mp4").exists():
+        raise ValueError("This clip was made before effects could be changed. "
+                         "Make new clips from this video to add effects.")
+    start, end = cut["cut_start"], cut["cut_end"]
+    framing = clip.get("framing_choice", DEFAULTS["framing"])
+    clip["effects"] = new
+
+    def draw(base, target):
+        # 1) the picture again, with the new zoom/pan (no text yet)
+        clip["framing"] = render_base(folder / "source.mp4", start, end, base, framing,
+                                      True, new)
+        # 2) the same text as before, drawn over the new picture
+        text_draw = _text_drawer(clip, folder)
+        text_draw(base, target)
+
+    return _redraw(job_id, clip_id, folder, clips_file, data, clip, out, draw)
+
+
+def _text_drawer(clip: dict, folder):
+    """A function(base, target) that puts the clip's current text on its picture. Mirrors what
+    export does for each text mode."""
+    state = textmode.text_state(clip)
+    mode = state.get("mode")
+    if mode == "captions" and clip.get("captions") and not textmode.is_untrusted(clip):
+        caps = clip["captions"]
+        style = captionstyles.resolve(caps["style"]["preset"],
+                                      {k: v for k, v in caps["style"].items() if k != "preset"})
+        return lambda base, target: apply_captions(base, caps["words"], style, target, folder)
+    if mode == "headline" and state.get("headline"):
+        head = state["headline"]
+        style = captionstyles.resolve_headline(head["style"]["preset"], head["style"])
+        return lambda base, target: apply_headline(base, head["text"], style, target, folder)
+    # "none", "pending" or anything else: the picture goes out without text
+    return lambda base, target: apply_no_text(base, target)
+
+
 def run_pipeline(job_id: str, language: str | None, settings: dict, url: str | None = None) -> None:
     folder = jobs.job_dir(job_id)
     jobs.set_status(job_id, "queued")
@@ -251,7 +298,7 @@ def _make_clips(job_id: str, settings: dict) -> None:
     (folder / "checklist.json").unlink(missing_ok=True)   # old confirmations no longer apply
     words = [w for seg in segments for w in seg["words"]]
     silences, envelope, media_end = _pauses(folder)
-    style = captionstyles.resolve(s["caption_preset"])
+    style = captionstyles.resolve(s["caption_preset"], {"script": s["caption_script"]})
     done = []
     for n, p in enumerate(picks, start=1):
         jobs.set_status(job_id, "exporting", progress=f"Clip {n} of {len(picks)}")
@@ -261,14 +308,16 @@ def _make_clips(job_id: str, settings: dict) -> None:
         text = textmode.initial_state(text_quality)
         # Words are only drawn (and stored) when they can be trusted. Otherwise the clip is made
         # with no text and waits for the user's choice; the raw transcript stays in transcript.json.
-        cap_words = (words_in_clip(words, cut["cut_start"], cut["cut_end"])
+        cap_words = (hinglish.convert_words(words_in_clip(words, cut["cut_start"], cut["cut_end"]),
+                                            style.script)
                      if text["mode"] == "captions" else [])
         framing_info = export_clip(folder / "source.mp4", words, cut["cut_start"], cut["cut_end"],
                                    folder / f"clip_{n}.mp4", folder, s["framing"],
                                    style=style, cap_words=cap_words)
         audio_info = framing_info.pop("audio")
         entry = {"id": n, **p, "duration": round(p["end"] - p["start"], 1), "music": None,
-                 "framing": framing_info, "cut": cut, "audio": audio_info,
+                 "framing": framing_info, "framing_choice": s["framing"], "cut": cut,
+                 "audio": audio_info, "effects": dict(effects.DEFAULT),
                  "text_quality": text_quality, "text": text}
         if text["mode"] == "captions":
             entry["captions"] = {"style": style.as_dict(), "words": cap_words}

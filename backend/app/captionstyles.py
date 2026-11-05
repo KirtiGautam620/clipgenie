@@ -12,6 +12,7 @@ WEIGHTS = {"semibold": "Poppins-SemiBold.ttf", "bold": "Poppins-Bold.ttf",
            "extrabold": "Poppins-ExtraBold.ttf"}
 ANIMATIONS = ("none", "highlight", "pop")   # none = the whole line stays the same colour
 BOXES = ("none", "pill", "bar")             # pill = behind the spoken word, bar = behind the line
+SCRIPTS = ("original", "hinglish")          # hinglish = Hindi words in Roman letters (see hinglish.py)
 
 # Keep captions clear of the Shorts buttons and description (percent of the video height).
 POSITION_MIN, POSITION_MAX = 20, 78
@@ -33,6 +34,7 @@ class CaptionStyle:
     box: str = "none"
     outline: int = 0             # pixels of dark edge around letters
     shadow: bool = True
+    script: str = "original"     # how Hindi words are written: as heard, or in Hinglish
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -89,7 +91,8 @@ def resolve(preset: str = DEFAULT_PRESET, overrides: dict | None = None) -> Capt
     for name in ("text_color", "highlight_color"):
         if not isinstance(getattr(style, name), str) or not HEX.fullmatch(getattr(style, name)):
             raise ValueError(f"{name} must look like #RRGGBB")
-    for name, allowed_values in (("weight", tuple(WEIGHTS)), ("animation", ANIMATIONS), ("box", BOXES)):
+    for name, allowed_values in (("weight", tuple(WEIGHTS)), ("animation", ANIMATIONS), ("box", BOXES),
+                                 ("script", SCRIPTS)):
         if getattr(style, name) not in allowed_values:
             raise ValueError(f"{name} must be one of: {', '.join(allowed_values)}")
     if not isinstance(style.uppercase, bool) or not isinstance(style.shadow, bool):

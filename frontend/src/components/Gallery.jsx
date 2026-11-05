@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getJSON } from '../api.js';
 import GalleryClipCard from './GalleryClipCard.jsx';
 import MusicLibraryPanel from './MusicLibraryPanel.jsx';
+import { LeafTrio } from './Botanicals.jsx';
 import './Gallery.css';
 
 const DEFAULTS = { minLen: 30, maxLen: 60, count: 5, useAi: true, framing: 'crop' };
@@ -59,7 +60,6 @@ export default function Gallery({
 
       {hasNote && (
         <div className="cg-alert cg-alert--info" style={{ marginBottom: 'var(--cg-space-5)' }} role="status">
-          <span className="cg-alert-icon">ℹ️</span>
           <span>{result.note}</span>
         </div>
       )}
@@ -112,7 +112,6 @@ export default function Gallery({
 
             {rerunErr && (
               <div className="cg-alert cg-alert--error" role="alert">
-                <span className="cg-alert-icon">⚠️</span>
                 <span>{rerunErr}</span>
               </div>
             )}
@@ -122,7 +121,7 @@ export default function Gallery({
               onClick={handleRerun}
               disabled={rerunning}
             >
-              {rerunning ? <><span className="cg-spinner" aria-hidden="true" /> Regenerating…</> : '🔄 Regenerate'}
+              {rerunning ? <><span className="cg-spinner" aria-hidden="true" /> Regenerating…</> : 'Regenerate'}
             </button>
           </div>
 
@@ -133,7 +132,7 @@ export default function Gallery({
               onClick={() => setShowMusic(!showMusic)}
               style={{ alignSelf: 'flex-start', marginBottom: showMusic ? 'var(--cg-space-4)' : 0 }}
             >
-              {showMusic ? '▾' : '▸'} 🎵 Music Library ({library.tracks?.length || 0} tracks)
+              {showMusic ? '▾' : '▸'} Music library ({library.tracks?.length || 0} tracks)
             </button>
             {showMusic && (
               <MusicLibraryPanel library={library} onChanged={onLibraryChange} />
@@ -145,7 +144,7 @@ export default function Gallery({
         <section>
           {clips.length === 0 ? (
             <div className="cg-empty">
-              <span className="cg-empty-icon">🎬</span>
+              <span className="cg-empty-icon"><LeafTrio size={64} /></span>
               <p className="cg-heading-sm">No clips found</p>
               <p className="cg-text-sm cg-text-muted">Try a shorter minimum clip length in the sidebar and regenerate.</p>
             </div>

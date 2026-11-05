@@ -61,7 +61,7 @@ export default function MusicLibraryPanel({ library, onChanged }) {
               {t.attribution && <p className="cg-text-xs cg-text-muted">Credit: {t.attribution}</p>}
               {t.warning && (
                 <div className="cg-alert cg-alert--warn" style={{ fontSize: 'var(--cg-text-xs)', padding: '4px 8px' }}>
-                  <span>⚠️</span><span>{t.warning}</span>
+                  <span>{t.warning}</span>
                 </div>
               )}
             </div>
@@ -125,13 +125,11 @@ export default function MusicLibraryPanel({ library, onChanged }) {
           </div>
           {license === 'unknown' && (
             <div className="cg-alert cg-alert--warn">
-              <span className="cg-alert-icon">⚠️</span>
               <span>Unknown licence — clips using this track will carry a warning.</span>
             </div>
           )}
           {error && (
             <div className="cg-alert cg-alert--error" role="alert">
-              <span className="cg-alert-icon">⚠️</span>
               <span>{error}</span>
             </div>
           )}

@@ -1,5 +1,15 @@
 import React from 'react';
+import Icon from './Icon.jsx';
+import { LogoMark, Sprig } from './Botanicals.jsx';
 import './Sidebar.css';
+
+const NAV = [
+  { view: 'home', icon: 'home', label: 'Home' },
+  { view: 'create', icon: 'create', label: 'Create', also: ['import'] },
+  { view: 'gallery', icon: 'videos', label: 'My videos' },
+  { view: 'music', icon: 'music', label: 'Music' },
+  { view: 'settings', icon: 'settings', label: 'Settings' },
+];
 
 export default function Sidebar({
   currentView,
@@ -13,79 +23,45 @@ export default function Sidebar({
 
   return (
     <aside className="cg-sidebar" aria-label="Main Application Navigation">
-      {/* Brand Header */}
-      <div className="cg-sidebar-header" onClick={() => onNavigate('home')} role="button" tabIndex={0}>
-        <div className="cg-sidebar-logo-icon">🎬</div>
+      {/* Brand */}
+      <div className="cg-sidebar-header" onClick={() => onNavigate('home')} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigate('home'); }}>
+        <LogoMark size={30} />
         <div className="cg-sidebar-logo-text">
-          <span className="cg-sidebar-brand">Clip<span className="cg-gradient-text">Genie</span></span>
-          <span className="cg-sidebar-badge">STUDIO</span>
+          <span className="cg-sidebar-brand">Clip<span className="cg-sidebar-brand-accent">Genie</span></span>
         </div>
       </div>
 
-      {/* Main Navigation Links */}
+      {/* Main navigation */}
       <nav className="cg-sidebar-nav">
-        <button
-          type="button"
-          className={`cg-sidebar-item ${currentView === 'home' ? 'active' : ''}`}
-          onClick={() => onNavigate('home')}
-        >
-          <span className="cg-sidebar-icon">🏠</span>
-          <span className="cg-sidebar-label">Home</span>
-        </button>
-
-        <button
-          type="button"
-          className={`cg-sidebar-item ${currentView === 'create' || currentView === 'import' ? 'active' : ''}`}
-          onClick={() => onNavigate('create')}
-        >
-          <span className="cg-sidebar-icon">✨</span>
-          <span className="cg-sidebar-label">Create Short</span>
-        </button>
-
-        <button
-          type="button"
-          className={`cg-sidebar-item ${currentView === 'gallery' ? 'active' : ''}`}
-          onClick={() => onNavigate('gallery')}
-        >
-          <span className="cg-sidebar-icon">📁</span>
-          <span className="cg-sidebar-label">My Videos</span>
-          {clipsCount > 0 && (
-            <span className="cg-sidebar-count-badge">{clipsCount}</span>
-          )}
-          {isProcessing && (
-            <span className="cg-spinner" style={{ width: 12, height: 12, marginLeft: 'auto' }} />
-          )}
-        </button>
-
-        <button
-          type="button"
-          className={`cg-sidebar-item ${currentView === 'storyboard' ? 'active' : ''}`}
-          onClick={() => onNavigate('storyboard')}
-        >
-          <span className="cg-sidebar-icon">🎞️</span>
-          <span className="cg-sidebar-label">Storyboard</span>
-        </button>
-
-        <button
-          type="button"
-          className={`cg-sidebar-item ${currentView === 'music' ? 'active' : ''}`}
-          onClick={() => onNavigate('music')}
-        >
-          <span className="cg-sidebar-icon">🎵</span>
-          <span className="cg-sidebar-label">Music</span>
-        </button>
-
-        <button
-          type="button"
-          className={`cg-sidebar-item ${currentView === 'settings' ? 'active' : ''}`}
-          onClick={() => onNavigate('settings')}
-        >
-          <span className="cg-sidebar-icon">⚙️</span>
-          <span className="cg-sidebar-label">Settings</span>
-        </button>
+        {NAV.map((item) => {
+          const active = currentView === item.view || item.also?.includes(currentView);
+          return (
+            <button
+              key={item.view}
+              type="button"
+              className={`cg-sidebar-item ${active ? 'active' : ''}`}
+              onClick={() => onNavigate(item.view)}
+              aria-current={active ? 'page' : undefined}
+            >
+              <span className="cg-sidebar-icon"><Icon name={item.icon} /></span>
+              <span className="cg-sidebar-label">{item.label}</span>
+              {item.view === 'gallery' && clipsCount > 0 && (
+                <span className="cg-sidebar-count-badge">{clipsCount}</span>
+              )}
+              {item.view === 'gallery' && isProcessing && (
+                <span className="cg-spinner" style={{ width: 12, height: 12, marginLeft: 'auto' }} />
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      {/* Bottom Local Engine Health */}
+      <div className="cg-sidebar-art" aria-hidden="true">
+        <Sprig width={92} tone="leaf" />
+      </div>
+
+      {/* Local engine health */}
       <div className="cg-sidebar-footer">
         <div className="cg-engine-status-box">
           <div className="cg-engine-row">
@@ -101,4 +77,3 @@ export default function Sidebar({
     </aside>
   );
 }
-

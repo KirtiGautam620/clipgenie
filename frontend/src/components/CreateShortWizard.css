@@ -29,8 +29,9 @@
 .cg-wizard-card {
   background: var(--cg-bg-surface);
   border: 1px solid var(--cg-border-subtle);
-  border-radius: var(--cg-radius-md);
-  padding: 18px 20px;
+  border-radius: var(--cg-radius-lg);
+  box-shadow: var(--cg-shadow-card);
+  padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -40,21 +41,23 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: var(--cg-text-lg);
   font-weight: 600;
   color: var(--cg-text-primary);
   margin: 0;
 }
 
 .cg-wizard-step-num {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--cg-radius-xs);
-  background: var(--cg-bg-inset);
-  border: 1px solid var(--cg-border-default);
-  color: var(--cg-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cg-mint);
+  border: none;
+  color: var(--cg-forest);
+  font-family: var(--cg-font-body);
+  font-size: 12px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -65,7 +68,7 @@
   border: 1px dashed var(--cg-border-default);
   border-radius: var(--cg-radius-sm);
   background: var(--cg-bg-inset);
-  min-height: 120px;
+  min-height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,15 +110,15 @@
 /* Aspect Ratio Cards (Crisp Slate Rectangles) */
 .cg-aspect-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
 
 .cg-aspect-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 14px 16px;
   background: var(--cg-bg-inset);
   border: 1px solid var(--cg-border-default);
   border-radius: var(--cg-radius-sm);
@@ -142,10 +145,10 @@
 }
 
 .cg-aspect-name {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--cg-text-primary);
-  margin: 0;
+  margin: 0 0 3px;
 }
 
 /* Style Presets Grid */
@@ -276,4 +279,34 @@
   .cg-rights-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* The photos tab is shown but not available yet */
+.cg-tab--soon {
+  opacity: 0.55;
+  cursor: not-allowed;
+  font-style: italic;
+}
+
+.cg-dropzone-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--cg-radius-md);
+  background: var(--cg-mint);
+  color: var(--cg-forest);
+  margin-bottom: 8px;
+}
+.cg-dropzone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.cg-dropzone-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cg-text-primary);
 }

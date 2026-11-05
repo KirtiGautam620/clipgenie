@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from app import captions, captionstyles, jobs, music, rights, textmode, ytdl
 from app.llm import OLLAMA_MODEL
 from app.storyboard.api import router as storyboard_router
-from app.pipeline import (Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_music,
+from app.pipeline import (Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_music,
                           set_clip_text)
 
 
@@ -61,6 +61,11 @@ def _check_settings(min_len: float, max_len: float, count: int, framing: str) ->
         raise HTTPException(400, "framing must be crop or blur")
 
 
+def _check_script(value: str) -> None:
+    if value not in captionstyles.SCRIPTS:
+        raise HTTPException(400, "caption_script must be original or hinglish")
+
+
 def _check_rights(value: str) -> None:
     if value not in rights.SOURCE_RIGHTS:
         raise HTTPException(400, "Please say whether you own this video or have permission to use it")
@@ -79,12 +84,14 @@ async def upload(
     framing: str = Form(DEFAULTS["framing"]),
     music_on: bool = Form(DEFAULTS["music"]),
     music_volume: float = Form(DEFAULTS["music_volume"]),
+    caption_script: str = Form(DEFAULTS["caption_script"]),
 ):
     """One call does everything: transcribe, choose the best moments, edit the clips."""
     if language not in LANGUAGES:
         raise HTTPException(400, "language must be auto, en or hi")
     _check_rights(rights_declared)
     _check_settings(min_len, max_len, count, framing)
+    _check_script(caption_script)
     suffix = re.sub(r"[^a-z0-9]", "", (file.filename or "").rsplit(".", 1)[-1].lower())
     if suffix != "mp4":
         raise HTTPException(400, "Please upload an MP4 file")
@@ -95,7 +102,8 @@ async def upload(
     rights.save_source(job_id, rights_declared, title=file.filename or "")
 
     settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing,
-                    music=music_on, music_volume=max(0.0, min(1.0, music_volume)))
+                    music=music_on, music_volume=max(0.0, min(1.0, music_volume)),
+                    caption_script=caption_script)
     background.add_task(run_pipeline, job_id, LANGUAGES[language], settings)
     return {"job_id": job_id}
 
@@ -113,6 +121,7 @@ def import_url(
     framing: str = Form(DEFAULTS["framing"]),
     music_on: bool = Form(DEFAULTS["music"]),
     music_volume: float = Form(DEFAULTS["music_volume"]),
+    caption_script: str = Form(DEFAULTS["caption_script"]),
 ):
     """Import a YouTube video you own or have permission to use, then run the same job."""
     if language not in LANGUAGES:
@@ -122,6 +131,7 @@ def import_url(
         raise HTTPException(400, "A video can only be imported from a link if you own it, have "
                                  "permission, or it is public domain / licensed for reuse.")
     _check_settings(min_len, max_len, count, framing)
+    _check_script(caption_script)
     try:
         clean = ytdl.check_url(url)
     except ytdl.ImportError_ as e:
@@ -131,7 +141,7 @@ def import_url(
     rights.save_source(job_id, rights_declared, clean)
     settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing,
                     music=music_on, music_volume=max(0.0, min(1.0, music_volume)),
-                    rights=rights_declared)
+                    caption_script=caption_script, rights=rights_declared)
     background.add_task(run_pipeline, job_id, LANGUAGES[language], settings, clean)
     return {"job_id": job_id}
 
@@ -148,13 +158,15 @@ def job_status(job_id: str):
 def remake_clips(job_id: str, background: BackgroundTasks,
                  min_len: float = DEFAULTS["min_len"], max_len: float = DEFAULTS["max_len"],
                  count: int = DEFAULTS["count"], use_ai: bool = DEFAULTS["use_ai"],
-                 framing: str = DEFAULTS["framing"]):
+                 framing: str = DEFAULTS["framing"], caption_script: str = DEFAULTS["caption_script"]):
     """Make a fresh set of clips from an already-transcribed video."""
     status = jobs.get_status(job_id)
     if status is None or not (jobs.job_dir(job_id) / "transcript.json").exists():
         raise HTTPException(409, "This video has not been analysed yet")
     _check_settings(min_len, max_len, count, framing)
-    settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing)
+    _check_script(caption_script)
+    settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing,
+                    caption_script=caption_script)
     background.add_task(run_clips_only, job_id, settings)
     return {"started": True}
 
@@ -311,6 +323,28 @@ def change_clip_captions(job_id: str, clip_id: int, body: CaptionEdit):
     try:
         return rights.enrich(job_id, set_clip_captions(job_id, clip_id, body.preset, body.style,
                                                        body.words))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+class EffectsEdit(BaseModel):
+    zoom: float = Field(1.0, ge=1.0, le=1.5)   # 1.0 = no zoom, 1.5 = enlarged 50% by the end
+    pan: str = "none"                           # none | left | right
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/effects")
+def change_clip_effects(job_id: str, clip_id: int, body: EffectsEdit):
+    """Change the slow zoom and pan of the picture. The picture is made again (slower than a
+    caption change). A new version of the clip, so its checklist must be confirmed again."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, set_clip_effects(job_id, clip_id, body.model_dump()))
     except KeyError as e:
         raise HTTPException(404, str(e.args[0]))
     except ValueError as e:

@@ -249,10 +249,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--cg-bg-canvas);
+  background: var(--cg-bg-stage);   /* dark forest stage: footage and captions read true */
+  color: var(--cg-text-on-accent);
   position: relative;
   overflow: hidden;
-  padding: 10px;
+  padding: 14px;
 }
 
 .cg-viewport-container {
@@ -261,8 +262,8 @@
   background: #000;
   border-radius: var(--cg-radius-md);
   position: relative;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
-  border: 1px solid var(--cg-border-default);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(169, 196, 155, 0.25);
   overflow: hidden;
 }
 
@@ -313,7 +314,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
   z-index: 20;
 }
 
@@ -323,8 +324,8 @@
   left: 0;
   right: 0;
   height: 44px;
-  background: rgba(225, 29, 72, 0.08);
-  border-bottom: 1px dashed rgba(225, 29, 72, 0.3);
+  background: rgba(180, 71, 47, 0.12);
+  border-bottom: 1px dashed rgba(180, 71, 47, 0.45);
   font-size: 9px;
   color: rgba(255, 255, 255, 0.6);
   padding: 3px 6px;
@@ -336,8 +337,8 @@
   right: 0;
   bottom: 80px;
   width: 44px;
-  background: rgba(225, 29, 72, 0.08);
-  border-left: 1px dashed rgba(225, 29, 72, 0.3);
+  background: rgba(180, 71, 47, 0.12);
+  border-left: 1px dashed rgba(180, 71, 47, 0.45);
   font-size: 9px;
   writing-mode: vertical-rl;
   color: rgba(255, 255, 255, 0.6);
@@ -350,8 +351,8 @@
   left: 0;
   right: 0;
   height: 80px;
-  background: rgba(225, 29, 72, 0.08);
-  border-top: 1px dashed rgba(225, 29, 72, 0.3);
+  background: rgba(180, 71, 47, 0.12);
+  border-top: 1px dashed rgba(180, 71, 47, 0.45);
   font-size: 9px;
   color: rgba(255, 255, 255, 0.6);
   padding: 3px 6px;
@@ -362,11 +363,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
-  background: var(--cg-bg-surface);
-  padding: 3px 10px;
-  border-radius: var(--cg-radius-sm);
-  border: 1px solid var(--cg-border-default);
+  margin-top: 10px;
+  background: rgba(247, 246, 236, 0.08);
+  color: var(--cg-text-on-accent);
+  padding: 4px 12px;
+  border-radius: var(--cg-radius-md);
+  border: 1px solid rgba(169, 196, 155, 0.22);
 }
 
 /* Right Panel */
@@ -418,4 +420,43 @@
 .cg-detail-list dd {
   margin: 0;
   color: var(--cg-text-primary);
+}
+
+/* Tools that are planned but not built: listed quietly, never clickable */
+.cg-soon-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.cg-soon-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--cg-text-muted);
+  padding: 6px 10px;
+  border: 1px dashed var(--cg-border-default);
+  border-radius: var(--cg-radius-sm);
+}
+.cg-soon-list li span {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cg-ochre);
+}
+
+/* Side panel content (Text, Captions, Effects, Music) */
+.cg-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+.cg-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }

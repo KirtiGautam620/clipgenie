@@ -42,13 +42,13 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
             <span className="cg-gallery-play-hint">▶</span>
           </div>
         )}
+        <span className="cg-gallery-duration">{Math.round(clip.duration)}s</span>
       </div>
 
       {/* Metadata */}
       <div className="cg-gallery-meta">
         <h3 className="cg-gallery-title">{clip.title || `Clip ${clip.id}`}</h3>
         <div className="cg-gallery-chips">
-          <span className="cg-badge cg-badge--muted">{clip.duration}s</span>
           {mood && (
             <span className={`cg-badge cg-badge--${mc}`}>{mood}</span>
           )}
@@ -73,7 +73,7 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
       {/* Music indicator */}
       {clip.music && (
         <div className="cg-gallery-music">
-          <span className="cg-gallery-music-icon">🎵</span>
+          <span className="cg-gallery-music-icon" aria-hidden="true">♪</span>
           <span className="cg-text-sm cg-text-secondary">{clip.music.title}</span>
         </div>
       )}
@@ -83,16 +83,16 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
         <button
           className="cg-btn cg-btn--secondary cg-btn--sm"
           onClick={() => onEdit(clip)}
-          title="Open in Studio Workspace"
+          title="Open in the editor"
         >
-          🎛️ Studio Edit
+          Edit
         </button>
         <button
           className="cg-btn cg-btn--primary cg-btn--sm"
           onClick={() => (needsDecision || !onExport ? onEdit(clip) : onExport(clip))}
           title={needsDecision ? 'Choose how text appears before exporting' : 'Export / Download'}
         >
-          {needsDecision ? 'Choose text' : '↓ Export'}
+          {needsDecision ? 'Choose text' : 'Export'}
         </button>
       </div>
 
@@ -101,7 +101,6 @@ export default function GalleryClipCard({ jobId, clip, onEdit, onExport, onUpdat
         <div className="cg-gallery-warnings">
           {clip.warnings.map((w) => (
             <div key={w} className="cg-alert cg-alert--warn">
-              <span className="cg-alert-icon">⚠️</span>
               <span>{w}</span>
             </div>
           ))}

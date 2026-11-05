@@ -16,7 +16,7 @@ function loadOptions() {
 }
 
 const STYLE_KEYS = ['weight', 'size', 'text_color', 'highlight_color', 'position', 'animation',
-  'uppercase', 'words_per_line', 'box', 'outline', 'shadow'];
+  'uppercase', 'words_per_line', 'box', 'outline', 'shadow', 'script'];
 
 const LABELS = {
   weight: { semibold: 'Semibold', bold: 'Bold', extrabold: 'Extra bold' },
@@ -24,8 +24,12 @@ const LABELS = {
   box: { none: 'No box', pill: 'Pill behind spoken word', bar: 'Bar behind the line' },
 };
 
-const styleOf = (s) => Object.fromEntries(['preset', ...STYLE_KEYS].map((k) => [k, s[k]]));
+// Clips made before the script choice existed show Hindi words as heard ("original").
+const styleOf = (s) => ({ ...Object.fromEntries(['preset', ...STYLE_KEYS].map((k) => [k, s[k]])),
+  script: s.script || 'original' });
 const wordsOf = (c) => (c?.words || []).map((w) => w.text);
+const DEVANAGARI = /[\u0900-\u097F]/;
+const isHindi = (c) => (c?.words || []).some((w) => w.orig || DEVANAGARI.test(w.text));
 
 function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
   const caps = clip.captions;
@@ -60,13 +64,14 @@ function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
 
   const savedWords = useMemo(() => wordsOf(caps), [caps]);
   const wordsChanged = texts.some((t, i) => t !== savedWords[i]);
-  const styleChanged = draft && caps && STYLE_KEYS.concat('preset').some((k) => draft[k] !== caps.style[k]);
+  const styleChanged = draft && caps
+    && STYLE_KEYS.concat('preset').some((k) => draft[k] !== styleOf(caps.style)[k]);
   const dirty = wordsChanged || styleChanged;
 
   if (!caps) {
     return (
       <div className="cg-panel-content">
-        <h3 className="cg-heading-sm">💬 Captions</h3>
+        <h3 className="cg-heading-sm">Captions</h3>
         <p className="cg-text-xs cg-text-muted">
           This clip was made before captions could be changed. Make new clips from this video
           to edit their captions.
@@ -77,7 +82,7 @@ function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
   if (loadError) {
     return (
       <div className="cg-panel-content">
-        <h3 className="cg-heading-sm">💬 Captions</h3>
+        <h3 className="cg-heading-sm">Captions</h3>
         <p className="cg-text-xs cg-caption-error">Could not load the caption looks: {loadError}</p>
       </div>
     );
@@ -119,7 +124,7 @@ function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
   return (
     <div className="cg-panel-content">
       <div className="cg-panel-header">
-        <h3 className="cg-heading-sm">💬 Captions</h3>
+        <h3 className="cg-heading-sm">Captions</h3>
         {dirty && <span className="cg-badge cg-badge--muted">Not applied yet</span>}
       </div>
 
@@ -231,6 +236,20 @@ function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
             onChange={(e) => set('shadow', e.target.checked)} /> Soft shadow
         </label>
       </div>
+
+      {isHindi(caps) && (
+        <div className="cg-field">
+          <label className="cg-label" htmlFor="cap-script">Hindi words written in</label>
+          <select id="cap-script" className="cg-select" value={draft.script}
+            onChange={(e) => set('script', e.target.value)}>
+            <option value="hinglish">Hinglish (Roman letters: "aaj ki baat")</option>
+            <option value="original">Hindi (Devanagari: "आज की बात")</option>
+          </select>
+          {draft.script !== styleOf(caps.style).script && (
+            <p className="cg-text-xs cg-text-muted">The words below change after you apply.</p>
+          )}
+        </div>
+      )}
 
       <div className="cg-field">
         <label className="cg-label">Fix words</label>

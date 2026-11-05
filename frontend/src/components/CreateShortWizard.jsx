@@ -1,34 +1,29 @@
 import React, { useState, useRef } from 'react';
+import Icon from './Icon.jsx';
 import './CreateShortWizard.css';
 
 const RIGHTS_OPTIONS = [
-  { value: 'own', icon: '✎', label: 'I made this / I own it', urlOk: true },
-  { value: 'permission', icon: '🤝', label: "I have the owner's permission to edit & publish", urlOk: true },
-  { value: 'licensed', icon: '📜', label: 'Public domain or licensed for reuse (e.g. CC BY)', urlOk: true },
-  { value: 'unsure', icon: '❓', label: "I'm not sure (clips only — cannot import from URL)", urlOk: false },
+  { value: 'own', label: 'I made this / I own it', urlOk: true },
+  { value: 'permission', label: "I have the owner's permission to edit & publish", urlOk: true },
+  { value: 'licensed', label: 'Public domain or licensed for reuse (e.g. CC BY)', urlOk: true },
+  { value: 'unsure', label: "I'm not sure (clips only — cannot import from URL)", urlOk: false },
 ];
 
-const ASPECT_RATIOS = [
-  { id: '9-16', label: 'Vertical (9:16)', sub: 'Shorts, Reels, TikTok', icon: '📱', default: true },
-  { id: '1-1', label: 'Square (1:1)', sub: 'Instagram Feed', icon: '🔲' },
-  { id: '16-9', label: 'Widescreen (16:9)', sub: 'YouTube / Web', icon: '🖥️' },
+// How the picture is framed. These are the two real choices the backend understands.
+const FRAMING_OPTIONS = [
+  { id: 'crop', title: 'Follow the speaker',
+    desc: 'Crops to a vertical frame and follows the speaker\'s face. Best for talks and interviews.' },
+  { id: 'blur', title: 'Whole picture',
+    desc: 'Keeps the entire frame, centred over a soft blurred copy of itself.' },
 ];
 
-const STYLE_PRESETS = [
-  { id: 'cinematic', title: 'Cinematic Warm', icon: '🎬', desc: 'Warm studio grading & kinetic bold captions', framing: 'crop' },
-  { id: 'vibrant', title: 'Vibrant Tech', icon: '⚡', desc: 'Punchy saturation with neon subtitles', framing: 'crop' },
-  { id: 'blur-bg', title: 'Blurred Horizon', icon: '🌫️', desc: 'Full-frame over blurred background fit', framing: 'blur' },
-  { id: 'minimal', title: 'Minimalist Clean', icon: '✨', desc: 'Subtle lower-third subtitles', framing: 'crop' },
-];
-
-export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
-  const [source, setSource] = useState('file'); // 'file' | 'url'
+export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSource = 'file' }) {
+  const [source, setSource] = useState(initialSource); // 'file' | 'url'
   const [file, setFile] = useState(null);
   const [url, setUrl] = useState('');
   const [rights, setRights] = useState('own');
-  const [aspectRatio, setAspectRatio] = useState('9-16');
-  const [selectedStyle, setSelectedStyle] = useState(STYLE_PRESETS[0]);
   const [language, setLanguage] = useState('auto');
+  const [captionScript, setCaptionScript] = useState('hinglish');
   const [minLen, setMinLen] = useState(30);
   const [maxLen, setMaxLen] = useState(60);
   const [count, setCount] = useState(5);
@@ -61,19 +56,15 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
       url,
       rights,
       language,
+      captionScript,
       minLen,
       maxLen,
       count,
       useAi,
-      framing: selectedStyle.framing || framing,
+      framing,
       musicOn,
       musicVol,
     });
-  };
-
-  const handleSelectStyle = (preset) => {
-    setSelectedStyle(preset);
-    if (preset.framing) setFraming(preset.framing);
   };
 
   return (
@@ -82,14 +73,14 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
         {/* Wizard Header */}
         <div className="cg-wizard-header">
           <div>
-            <h1 className="cg-heading-lg">Create New Short</h1>
+            <h1 className="cg-heading-lg">Create a new video</h1>
             <p className="cg-text-secondary cg-text-sm" style={{ marginTop: 4 }}>
-              Select your source video, target aspect ratio, and editing style. AI handles the rest.
+              Choose where your video comes from and how it should be framed. ClipGenie does the rest.
             </p>
           </div>
           {onCancel && (
             <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={onCancel}>
-              ✕ Cancel
+              Cancel
             </button>
           )}
         </div>
@@ -99,17 +90,17 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
           <section className="cg-wizard-card">
             <h2 className="cg-wizard-step-title">
               <span className="cg-wizard-step-num">1</span>
-              <span>Video Source</span>
+              <span>Where is your video?</span>
             </h2>
 
-            <div className="cg-tabs" style={{ maxWidth: 360, marginBottom: 16 }}>
+            <div className="cg-tabs" style={{ maxWidth: 440, marginBottom: 16 }}>
               <button
                 type="button"
                 className={`cg-tab ${source === 'file' ? 'cg-tab--active' : ''}`}
                 onClick={() => setSource('file')}
                 disabled={busy}
               >
-                📁 Upload Video File
+                Upload a video
               </button>
               <button
                 type="button"
@@ -117,7 +108,11 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
                 onClick={() => setSource('url')}
                 disabled={busy}
               >
-                🔗 YouTube Link
+                YouTube link
+              </button>
+              <button type="button" className="cg-tab cg-tab--soon" disabled
+                title="Photos to video is not available yet">
+                Photos · soon
               </button>
             </div>
 
@@ -142,7 +137,7 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
                 />
                 {file ? (
                   <div className="cg-wizard-file-info">
-                    <span className="cg-file-icon">🎬</span>
+                    <span className="cg-file-icon"><Icon name="videos" size={24} /></span>
                     <div>
                       <p className="cg-file-name">{file.name}</p>
                       <p className="cg-text-xs cg-text-muted">
@@ -153,7 +148,7 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
                   </div>
                 ) : (
                   <div className="cg-dropzone-empty">
-                    <span className="cg-dropzone-icon">⬆</span>
+                    <span className="cg-dropzone-icon"><Icon name="upload" size={22} /></span>
                     <p className="cg-dropzone-label">Drop your MP4 or MOV video here</p>
                     <p className="cg-text-xs cg-text-muted">or click to browse from your Mac</p>
                   </div>
@@ -177,60 +172,38 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
             )}
           </section>
 
-          {/* ── STEP 2: Target Aspect Ratio ───────────────────────────── */}
+          {/* ── STEP 2: Picture framing ───────────────────────────────── */}
           <section className="cg-wizard-card">
             <h2 className="cg-wizard-step-title">
               <span className="cg-wizard-step-num">2</span>
-              <span>Target Aspect Ratio</span>
+              <span>How should the picture be framed?</span>
             </h2>
 
             <div className="cg-aspect-grid">
-              {ASPECT_RATIOS.map((ar) => (
+              {FRAMING_OPTIONS.map((opt) => (
                 <div
-                  key={ar.id}
-                  className={`cg-aspect-card ${aspectRatio === ar.id ? 'active' : ''}`}
-                  onClick={() => setAspectRatio(ar.id)}
+                  key={opt.id}
+                  role="radio"
+                  aria-checked={framing === opt.id}
+                  tabIndex={0}
+                  className={`cg-aspect-card ${framing === opt.id ? 'active' : ''}`}
+                  onClick={() => setFraming(opt.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFraming(opt.id); } }}
                 >
-                  <span className="cg-aspect-icon">{ar.icon}</span>
                   <div className="cg-aspect-info">
-                    <p className="cg-aspect-name">{ar.label}</p>
-                    <span className="cg-text-xs cg-text-muted">{ar.sub}</span>
+                    <p className="cg-aspect-name">{opt.title}</p>
+                    <span className="cg-text-xs cg-text-muted">{opt.desc}</span>
                   </div>
-                  {ar.default && <span className="cg-badge cg-badge--accent cg-text-xs">Revid Style</span>}
                 </div>
               ))}
             </div>
-          </section>
-
-          {/* ── STEP 3: Aesthetic Presets ─────────────────────────────── */}
-          <section className="cg-wizard-card">
-            <h2 className="cg-wizard-step-title">
-              <span className="cg-wizard-step-num">3</span>
-              <span>Visual Style & Mood</span>
-            </h2>
-
-            <div className="cg-styles-grid">
-              {STYLE_PRESETS.map((preset) => (
-                <div
-                  key={preset.id}
-                  className={`cg-style-card ${selectedStyle.id === preset.id ? 'active' : ''}`}
-                  onClick={() => handleSelectStyle(preset)}
-                >
-                  <span className="cg-style-icon">{preset.icon}</span>
-                  <p className="cg-style-title">{preset.title}</p>
-                  <p className="cg-text-xs cg-text-muted">{preset.desc}</p>
-                  {selectedStyle.id === preset.id && (
-                    <span className="cg-style-check">✓</span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <p className="cg-text-xs cg-text-muted">Output is vertical 9:16, made for Shorts, Reels and TikTok.</p>
           </section>
 
           {/* ── STEP 4: Rights Declaration ────────────────────────────── */}
           <section className="cg-wizard-card">
             <h2 className="cg-wizard-step-title">
-              <span className="cg-wizard-step-num">4</span>
+              <span className="cg-wizard-step-num">3</span>
               <span>Who owns this video? <span className="cg-required">*</span></span>
             </h2>
 
@@ -248,7 +221,6 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
                     onChange={() => setRights(opt.value)}
                     className="cg-rights-radio"
                   />
-                  <span className="cg-rights-icon">{opt.icon}</span>
                   <span className="cg-rights-text">{opt.label}</span>
                 </label>
               ))}
@@ -311,6 +283,20 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
                   </div>
                 </div>
 
+                <div className="cg-field" style={{ marginTop: 12 }}>
+                  <label className="cg-label" htmlFor="caption-script">Hindi captions written in</label>
+                  <select
+                    id="caption-script"
+                    className="cg-select"
+                    value={captionScript}
+                    onChange={(e) => setCaptionScript(e.target.value)}
+                    style={{ maxWidth: 320 }}
+                  >
+                    <option value="hinglish">Hinglish (Roman letters: "aaj ki baat")</option>
+                    <option value="original">Hindi (Devanagari: "आज की बात")</option>
+                  </select>
+                </div>
+
                 <div className="cg-advanced-row" style={{ marginTop: 12 }}>
                   <label className="cg-toggle">
                     <input
@@ -344,9 +330,9 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel }) {
               disabled={!ready || busy}
             >
               {busy ? (
-                <><span className="cg-spinner" /> Analyzing Video…</>
+                <><span className="cg-spinner" /> Analyzing video…</>
               ) : (
-                <><span>✨ Generate AI Shorts</span><span>→</span></>
+                <><span>Create Shorts</span><span>→</span></>
               )}
             </button>
           </div>

@@ -8,13 +8,12 @@ import ProcessingScreen from './components/ProcessingScreen.jsx';
 import Gallery from './components/Gallery.jsx';
 import StudioEditor from './components/StudioEditor.jsx';
 import MusicView from './components/MusicView.jsx';
-import StoryboardView from './components/StoryboardView.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import ExportStudioModal from './components/ExportStudioModal.jsx';
 import './styles/global.css';
 
 // ── Screens / Views ─────────────────────────────────────────
-// home | create | processing | gallery | studio | storyboard | music | settings
+// home | create | processing | gallery | studio | music | settings
 const SAVED_JOB = 'clipgenie.lastJob';
 
 export default function App() {
@@ -28,6 +27,7 @@ export default function App() {
   const [jobStatus, setJobStatus]   = useState(null);
   const [busy, setBusy]             = useState(false);
   const [source, setSource]         = useState('file');
+  const [createSource, setCreateSource] = useState('file'); // which tab the Create screen opens on
   const [clips, setClips]           = useState([]);
   const [result, setResult]         = useState(null);
 
@@ -107,7 +107,7 @@ export default function App() {
   // ── Start Job (from CreateShortWizard) ─────────────────
   async function handleSubmitJob(opts) {
     const {
-      source: src, file, url, rights, language,
+      source: src, file, url, rights, language, captionScript,
       minLen, maxLen, count, useAi, framing, musicOn, musicVol,
     } = opts;
 
@@ -124,6 +124,7 @@ export default function App() {
       else form.append('url', url);
       form.append('rights', rights);
       form.append('language', language);
+      form.append('caption_script', captionScript || 'hinglish');
       form.append('min_len', minLen);
       form.append('max_len', maxLen);
       form.append('count', count);
@@ -209,7 +210,10 @@ export default function App() {
             health={health}
             musicCount={library.tracks?.length || 0}
             lastJobStatus={jobStatus?.status}
-            onImport={() => handleNavigate('create')}
+            jobId={jobId}
+            clips={clips}
+            onImport={(src) => { setCreateSource(src === 'url' ? 'url' : 'file'); handleNavigate('create'); }}
+            onOpenClip={openStudio}
             onResume={() => clips.length > 0 ? handleNavigate('gallery') : (jobStatus && setView('processing'))}
           />
         )}
@@ -217,6 +221,8 @@ export default function App() {
         {/* 2. Create Short Wizard */}
         {view === 'create' && (
           <CreateShortWizard
+            key={createSource}
+            initialSource={createSource}
             busy={busy}
             onSubmit={handleSubmitJob}
             onCancel={() => handleNavigate('home')}
@@ -257,9 +263,6 @@ export default function App() {
             onClipUpdated={handleClipUpdated}
           />
         )}
-
-        {/* The optional Storyboard tool (its own screen and API; the Shorts flow never touches it) */}
-        {view === 'storyboard' && <StoryboardView />}
 
         {/* 6. Music Library */}
         {view === 'music' && (

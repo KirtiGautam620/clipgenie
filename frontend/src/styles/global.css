@@ -11,6 +11,7 @@
 }
 
 html {
+  accent-color: var(--cg-forest);   /* native radios, checkboxes and sliders follow the theme */
   font-size: 14px; /* Pro desktop tool standard */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -25,6 +26,12 @@ body {
   background: var(--cg-bg-canvas);
   min-height: 100vh;
   overflow: hidden;
+}
+
+/* Calm serif headings give the app its editorial, botanical voice */
+h1, h2, h3 {
+  font-family: var(--cg-font-display);
+  letter-spacing: -0.01em;
 }
 
 #root {
@@ -58,8 +65,8 @@ input, select, textarea {
 
 /* ── Clean Focus Visible (No Glow) ────────────────────── */
 :focus-visible {
-  outline: 1px solid var(--cg-accent);
-  outline-offset: 1px;
+  outline: 2px solid var(--cg-sage);
+  outline-offset: 2px;
 }
 
 /* ── Scrollbars ───────────────────────────────────────── */
@@ -94,7 +101,12 @@ input, select, textarea {
   min-width: 0;
   height: 100vh;
   overflow-y: auto;
-  background: var(--cg-bg-canvas);
+  background-color: var(--cg-bg-canvas);
+  /* a faint drafting-paper grid */
+  background-image:
+    linear-gradient(var(--cg-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cg-grid-line) 1px, transparent 1px);
+  background-size: var(--cg-grid-size) var(--cg-grid-size);
 }
 
 .cg-layout {
@@ -108,12 +120,13 @@ input, select, textarea {
   align-items: center;
   gap: var(--cg-space-4);
   padding: 0 var(--cg-space-4);
-  background: var(--cg-bg-surface);
+  background: color-mix(in srgb, var(--cg-bg-surface) 92%, transparent);
+  backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--cg-border-subtle);
   position: sticky;
   top: 0;
   z-index: 100;
-  height: 44px;
+  height: 48px;
 }
 
 .cg-header-logo {
@@ -156,34 +169,38 @@ input, select, textarea {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 44px);
+  min-height: calc(100vh - 48px);
   text-align: center;
 }
 
 /* ── Typography helpers ───────────────────────────────── */
 .cg-heading-xl {
-  font-size: var(--cg-text-3xl);
-  font-weight: var(--cg-weight-bold);
-  line-height: var(--cg-leading-tight);
+  font-family: var(--cg-font-display);
+  font-size: var(--cg-text-4xl);
+  font-weight: var(--cg-weight-semibold);
+  line-height: 1.15;
   color: var(--cg-text-primary);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
 .cg-heading-lg {
-  font-size: var(--cg-text-2xl);
+  font-family: var(--cg-font-display);
+  font-size: var(--cg-text-3xl);
   font-weight: var(--cg-weight-semibold);
   line-height: var(--cg-leading-tight);
   letter-spacing: -0.01em;
 }
 
 .cg-heading-md {
-  font-size: var(--cg-text-xl);
+  font-family: var(--cg-font-display);
+  font-size: var(--cg-text-2xl);
   font-weight: var(--cg-weight-semibold);
   line-height: var(--cg-leading-tight);
 }
 
 .cg-heading-sm {
-  font-size: var(--cg-text-base);
+  font-family: var(--cg-font-display);
+  font-size: var(--cg-text-lg);
   font-weight: var(--cg-weight-semibold);
 }
 
@@ -211,7 +228,7 @@ input, select, textarea {
   gap: 6px;
   border: 1px solid transparent;
   border-radius: var(--cg-radius-md);
-  padding: 6px 14px;
+  padding: 7px 16px;
   font-size: var(--cg-text-sm);
   font-weight: var(--cg-weight-medium);
   line-height: 1.4;
@@ -259,10 +276,10 @@ input, select, textarea {
 .cg-btn--danger {
   background: var(--cg-error-muted);
   color: var(--cg-error);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--cg-error) 35%, transparent);
 }
 .cg-btn--danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--cg-error) 18%, transparent);
 }
 
 .cg-btn--sm {
@@ -271,7 +288,7 @@ input, select, textarea {
 }
 
 .cg-btn--lg {
-  padding: 9px 20px;
+  padding: 11px 24px;
   font-size: var(--cg-text-base);
   font-weight: var(--cg-weight-semibold);
 }
@@ -287,6 +304,7 @@ input, select, textarea {
   border: 1px solid var(--cg-border-subtle);
   border-radius: var(--cg-radius-lg);
   padding: var(--cg-space-4);
+  box-shadow: var(--cg-shadow-card);
 }
 
 .cg-card--interactive {
@@ -331,7 +349,7 @@ input, select, textarea {
   transition: border-color var(--cg-transition-fast);
   outline: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239CA3AF' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364766B' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 28px;
@@ -425,32 +443,32 @@ input, select, textarea {
 
 .cg-badge--accent {
   background: var(--cg-accent-muted);
-  border-color: rgba(47, 104, 246, 0.3);
-  color: #729BFD;
+  border-color: color-mix(in srgb, var(--cg-forest) 28%, transparent);
+  color: var(--cg-accent-text);
 }
 
 .cg-badge--success {
   background: var(--cg-success-muted);
-  border-color: rgba(34, 197, 94, 0.3);
+  border-color: color-mix(in srgb, var(--cg-success) 30%, transparent);
   color: var(--cg-success);
 }
 
 .cg-badge--warning {
   background: var(--cg-warning-muted);
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: color-mix(in srgb, var(--cg-warning) 30%, transparent);
   color: var(--cg-warning);
 }
 
 .cg-badge--error {
   background: var(--cg-error-muted);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--cg-error) 30%, transparent);
   color: var(--cg-error);
 }
 
 .cg-badge--score {
-  background: #254B8C;
-  border-color: rgba(255, 255, 255, 0.15);
-  color: white;
+  background: var(--cg-forest);
+  border-color: transparent;
+  color: var(--cg-text-on-accent);
   font-weight: 600;
 }
 
@@ -492,17 +510,20 @@ input, select, textarea {
 }
 
 .cg-alert--warn {
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: color-mix(in srgb, var(--cg-warning) 35%, transparent);
+  background: var(--cg-warning-muted);
   color: var(--cg-warning);
 }
 
 .cg-alert--error {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--cg-error) 35%, transparent);
+  background: var(--cg-error-muted);
   color: var(--cg-error);
 }
 
 .cg-alert--info {
-  border-color: rgba(56, 189, 248, 0.3);
+  border-color: color-mix(in srgb, var(--cg-info) 35%, transparent);
+  background: var(--cg-info-muted);
   color: var(--cg-info);
 }
 
@@ -531,8 +552,9 @@ input, select, textarea {
 
 .cg-tab--active {
   background: var(--cg-bg-surface);
-  color: var(--cg-text-primary);
+  color: var(--cg-accent-text);
   font-weight: 600;
+  box-shadow: var(--cg-shadow-sm);
 }
 
 /* ── Tool Pill Button ─────────────────────────────────── */
@@ -554,18 +576,18 @@ input, select, textarea {
 .cg-tool-pill.active {
   background: var(--cg-accent-muted);
   border-color: var(--cg-accent);
-  color: #729BFD;
+  color: var(--cg-accent-text);
 }
 .cg-tool-pill--danger {
   color: var(--cg-error);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--cg-error) 35%, transparent);
 }
 
 /* ── Modal Backdrop & Window ──────────────────────────── */
 .cg-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(27, 67, 51, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -576,7 +598,7 @@ input, select, textarea {
 .cg-modal {
   background: var(--cg-bg-surface);
   border: 1px solid var(--cg-border-default);
-  border-radius: var(--cg-radius-lg);
+  border-radius: var(--cg-radius-xl);
   padding: var(--cg-space-6);
   max-width: 580px;
   width: 100%;

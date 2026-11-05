@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "clipgenie-backend",
+      "runtimeExecutable": "/Users/kirtig/clipgenie/backend/.venv/bin/uvicorn",
+      "runtimeArgs": ["app.main:app", "--port", "8000", "--app-dir", "/Users/kirtig/clipgenie/backend"],
+      "port": 8000
+    },
+    {
+      "name": "clipgenie-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/kirtig/clipgenie/frontend", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

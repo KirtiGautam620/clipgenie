@@ -182,12 +182,12 @@
   padding: 0 6px;
   font-size: 11px;
   font-weight: 500;
-  color: #F1F3F7;
+  color: #F7F6EC;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: border-color var(--cg-transition-fast), filter var(--cg-transition-fast);
 }
 
@@ -196,8 +196,8 @@
 }
 
 .cg-timeline-block.selected {
-  border-color: #FFFFFF;
-  box-shadow: 0 0 0 1px #FFFFFF;
+  border-color: var(--cg-forest-deep);
+  box-shadow: 0 0 0 2px var(--cg-leaf);
   z-index: 5;
 }
 
@@ -214,33 +214,33 @@
 /* Desaturated Stem Fills */
 .cg-timeline-block--broll {
   background: var(--cg-track-broll);
-  border-color: #5E46A0;
+  border-color: transparent;
 }
 
 .cg-timeline-block--video {
   background: var(--cg-track-video);
-  border-color: #315FA8;
+  border-color: transparent;
 }
 
 .cg-timeline-block--captions {
   background: var(--cg-track-captions);
-  border-color: #A67B26;
+  border-color: transparent;
   color: #FFF;
 }
 
 .cg-timeline-block--music {
   background: var(--cg-track-music);
-  border-color: #277353;
+  border-color: transparent;
 }
 
 .cg-timeline-block--sfx {
   background: var(--cg-track-sfx);
-  border-color: #2A6A80;
+  border-color: transparent;
 }
 
 .cg-timeline-block--effects {
   background: var(--cg-track-effects);
-  border-color: #8C3060;
+  border-color: transparent;
 }
 
 /* ── Playhead Needle ────────────────────────────────────────────────── */
