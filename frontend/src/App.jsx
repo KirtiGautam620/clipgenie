@@ -28,6 +28,7 @@ export default function App() {
   const [busy, setBusy]             = useState(false);
   const [source, setSource]         = useState('file');
   const [createSource, setCreateSource] = useState('file'); // which tab the Create screen opens on
+  const [createUrl, setCreateUrl]       = useState('');     // a link pasted on Home, carried to Create
   const [clips, setClips]           = useState([]);
   const [result, setResult]         = useState(null);
 
@@ -36,6 +37,9 @@ export default function App() {
   const [exportingClip, setExportingClip] = useState(null);
 
   const timer = useRef(null);
+
+  // a link pasted on Home only belongs to that one visit to Create
+  useEffect(() => { if (view !== 'create') setCreateUrl(''); }, [view]);
 
   // ── Mount Lifecycle: health, music, last job ───────────
   useEffect(() => {
@@ -161,6 +165,16 @@ export default function App() {
     }
   }
 
+  // The server has started making a fresh set of clips: show progress until it is done
+  function handleRegenerated() {
+    setClips([]);
+    setResult(null);
+    setJobStatus({ status: 'queued' });
+    setBusy(true);
+    setView('processing');
+    watchJob(jobId);
+  }
+
   function openStudio(clip) {
     setEditingClip(clip);
     setView('studio');
@@ -212,7 +226,8 @@ export default function App() {
             lastJobStatus={jobStatus?.status}
             jobId={jobId}
             clips={clips}
-            onImport={(src) => { setCreateSource(src === 'url' ? 'url' : 'file'); handleNavigate('create'); }}
+            onImport={(src, link) => { setCreateSource(src === 'url' ? 'url' : 'file'); setCreateUrl(link || ''); handleNavigate('create'); }}
+            onOpenSettings={() => handleNavigate('settings')}
             onOpenClip={openStudio}
             onResume={() => clips.length > 0 ? handleNavigate('gallery') : (jobStatus && setView('processing'))}
           />
@@ -221,8 +236,9 @@ export default function App() {
         {/* 2. Create Short Wizard */}
         {view === 'create' && (
           <CreateShortWizard
-            key={createSource}
+            key={`${createSource}-${createUrl}`}
             initialSource={createSource}
+            initialUrl={createUrl}
             busy={busy}
             onSubmit={handleSubmitJob}
             onCancel={() => handleNavigate('home')}
@@ -249,7 +265,7 @@ export default function App() {
             onEdit={openStudio}
             onExport={(clip) => setExportingClip(clip)}
             onNewVideo={() => handleNavigate('create')}
-            onLibraryChange={loadLibrary}
+            onRegenerated={handleRegenerated}
           />
         )}
 
@@ -276,6 +292,7 @@ export default function App() {
         {view === 'settings' && (
           <SettingsView
             health={health}
+            musicCount={library.tracks?.length || 0}
           />
         )}
 

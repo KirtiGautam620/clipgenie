@@ -17,10 +17,10 @@ const FRAMING_OPTIONS = [
     desc: 'Keeps the entire frame, centred over a soft blurred copy of itself.' },
 ];
 
-export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSource = 'file' }) {
+export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSource = 'file', initialUrl = '' }) {
   const [source, setSource] = useState(initialSource); // 'file' | 'url'
   const [file, setFile] = useState(null);
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(initialUrl);
   const [rights, setRights] = useState('own');
   const [language, setLanguage] = useState('auto');
   const [captionScript, setCaptionScript] = useState('hinglish');

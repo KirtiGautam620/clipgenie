@@ -13,6 +13,7 @@ const PATHS = {
   arrow: 'M5 12h14M13 6l6 6-6 6',
   check: 'M5 12.5l4.5 4.5L19 7.5',
   back: 'M19 12H5M11 6l-6 6 6 6',
+  refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6',
 };
 
 export default function Icon({ name, size = 18, stroke = 1.7 }) {

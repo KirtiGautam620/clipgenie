@@ -2,7 +2,8 @@
 import json
 import threading
 
-from app import captionstyles, cuts, effects, hinglish, jobs, music, quality, rights, textmode, ytdl
+from app import (captionstyles, cuts, effects, hinglish, jobs, manifest, music, quality, rights, textmode,
+                 ytdl)
 from app.captions import words_in_clip
 from app.clips import pick_clips
 from app.export import (apply_captions, apply_headline, apply_no_text, base_path, export_clip,
@@ -192,43 +193,41 @@ def set_clip_text(job_id: str, clip_id: int, mode: str | None, headline: dict | 
 def set_clip_effects(job_id: str, clip_id: int, settings: dict) -> dict:
     """Change the zoom and pan of one finished clip. The picture is made again from the source
     video, then the same text (captions or headline) and music go back on top. A new version of
-    the clip, so its checklist must be confirmed again."""
+    the clip, so its checklist must be confirmed again.
+
+    Everything the renderer needs is read from the clip's editing manifest (see manifest.py)."""
     folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
     new = effects.normalize(settings)          # ValueError with a readable message if invalid
-    cut = clip.get("cut")
-    if not cut or not (folder / "source.mp4").exists():
-        raise ValueError("This clip was made before effects could be changed. "
-                         "Make new clips from this video to add effects.")
-    start, end = cut["cut_start"], cut["cut_end"]
-    framing = clip.get("framing_choice", DEFAULTS["framing"])
+    if not (folder / "source.mp4").exists():
+        raise ValueError("The original video for this clip is no longer on this computer, so its "
+                         "picture cannot be remade.")
+    m = manifest.from_clip(clip)
+    m["effects"] = new
+    m = manifest.validate(m)
+    manifest.check_renderable(m)               # refuses clips whose captions are burned in
+    args = manifest.render_args(m)
     clip["effects"] = new
 
     def draw(base, target):
         # 1) the picture again, with the new zoom/pan (no text yet)
-        clip["framing"] = render_base(folder / "source.mp4", start, end, base, framing,
-                                      True, new)
+        clip["framing"] = render_base(folder / "source.mp4", base=base, **args)
         # 2) the same text as before, drawn over the new picture
-        text_draw = _text_drawer(clip, folder)
-        text_draw(base, target)
+        _text_drawer(manifest.text_drawer_spec(m), folder)(base, target)
 
     return _redraw(job_id, clip_id, folder, clips_file, data, clip, out, draw)
 
 
-def _text_drawer(clip: dict, folder):
-    """A function(base, target) that puts the clip's current text on its picture. Mirrors what
+def _text_drawer(spec: dict, folder):
+    """A function(base, target) that puts the manifest's text on the picture. Mirrors what
     export does for each text mode."""
-    state = textmode.text_state(clip)
-    mode = state.get("mode")
-    if mode == "captions" and clip.get("captions") and not textmode.is_untrusted(clip):
-        caps = clip["captions"]
-        style = captionstyles.resolve(caps["style"]["preset"],
-                                      {k: v for k, v in caps["style"].items() if k != "preset"})
-        return lambda base, target: apply_captions(base, caps["words"], style, target, folder)
-    if mode == "headline" and state.get("headline"):
-        head = state["headline"]
-        style = captionstyles.resolve_headline(head["style"]["preset"], head["style"])
-        return lambda base, target: apply_headline(base, head["text"], style, target, folder)
-    # "none", "pending" or anything else: the picture goes out without text
+    if spec["kind"] == "captions":
+        style = captionstyles.resolve(spec["style"].get("preset"),
+                                      {k: v for k, v in spec["style"].items() if k != "preset"})
+        return lambda base, target: apply_captions(base, spec["words"], style, target, folder)
+    if spec["kind"] == "headline":
+        style = captionstyles.resolve_headline(spec["style"].get("preset"), spec["style"])
+        return lambda base, target: apply_headline(base, spec["text"], style, target, folder)
+    # "none" or "pending": the picture goes out without text
     return lambda base, target: apply_no_text(base, target)
 
 

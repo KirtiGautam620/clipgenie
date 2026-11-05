@@ -1,22 +1,58 @@
+import { useEffect, useState } from 'react';
 import Icon from './Icon.jsx';
 import { Sprig, LeafTrio } from './Botanicals.jsx';
 import './Dashboard.css';
 
-const START_OPTIONS = [
-  { id: 'url', icon: 'link', title: 'YouTube link',
-    text: 'Paste a link to a talk or podcast you have the rights to use.' },
-  { id: 'file', icon: 'upload', title: 'Upload a video',
-    text: 'Choose an MP4 or MOV from your Mac. It never leaves your computer.' },
-];
+// "Last edited 3 days ago": the time comes from the real video file (see useLastEdited)
+function ago(date) {
+  const minutes = (Date.now() - date.getTime()) / 60000;
+  if (minutes < 1.5) return 'just now';
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.round(hours)} ${Math.round(hours) === 1 ? 'hour' : 'hours'} ago`;
+  const days = hours / 24;
+  if (days < 7) return `${Math.round(days)} ${Math.round(days) === 1 ? 'day' : 'days'} ago`;
+  return `on ${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+/**
+ * When each shown video was last written to disk (it changes whenever the video is edited and
+ * re-made). Read from the file's own Last-Modified header with a 1-byte range request, so no
+ * extra server support and no stored timestamps are needed.
+ */
+function useLastEdited(jobId, clips) {
+  const [times, setTimes] = useState({});
+  const key = clips.map((c) => `${c.id}:${c.version || 0}`).join(',');
+  useEffect(() => {
+    let cancelled = false;
+    setTimes({});
+    clips.forEach(async (c) => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/clips/${c.id}.mp4?v=${c.version || 0}`,
+          { headers: { Range: 'bytes=0-0' } });
+        const stamp = res.headers.get('last-modified');
+        if (stamp && !cancelled) setTimes((t) => ({ ...t, [c.id]: new Date(stamp) }));
+      } catch { /* no timestamp: the card simply omits it */ }
+    });
+    return () => { cancelled = true; };
+  }, [jobId, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return times;
+}
 
 export default function Dashboard({
-  health, musicCount, lastJobStatus, jobId, clips = [], onImport, onResume, onOpenClip,
+  health, lastJobStatus, jobId, clips = [], onImport, onResume, onOpenClip, onOpenSettings,
 }) {
+  const [link, setLink] = useState('');
   const serverDown = health?.status === 'down';
-  const ollamaDown = health && !serverDown && !health?.ollama?.running;
-  const modelMissing = health?.ollama?.running && !health?.ollama?.model_installed;
+  const aiDown = health && !serverDown && !(health?.ollama?.running && health?.ollama?.model_installed);
   const inProgress = lastJobStatus && lastJobStatus !== 'done' && lastJobStatus !== 'error';
   const recent = clips.slice(0, 4);
+  const edited = useLastEdited(jobId, recent);
+
+  function submitLink(e) {
+    e.preventDefault();
+    if (link.trim()) onImport('url', link.trim());
+  }
 
   return (
     <main className="cg-main cg-dashboard">
@@ -28,8 +64,7 @@ export default function Dashboard({
             Turn long videos into <em>Shorts</em> worth watching.
           </h1>
           <p className="cg-dash-tagline">
-            Private and local: ClipGenie finds the best moments, frames the speaker, adds captions
-            and music, and keeps everything on your Mac.
+            ClipGenie finds the best moments in your videos, frames the speaker, and adds captions and music.
           </p>
           <button className="cg-btn cg-btn--primary cg-btn--lg" onClick={() => onImport('file')}
             disabled={serverDown}>
@@ -38,32 +73,24 @@ export default function Dashboard({
           </button>
         </div>
         <div className="cg-dash-hero-art" aria-hidden="true">
-          <Sprig width={150} tone="leaf" />
-          <Sprig width={110} tone="leaf" flip />
+          <Sprig width={140} tone="leaf" />
+          <Sprig width={100} tone="leaf" flip />
         </div>
       </section>
 
       {serverDown && (
         <div className="cg-alert cg-alert--error" role="alert">
           <span>
-            Cannot reach the ClipGenie server. Make sure it is running with&nbsp;
-            <code className="cg-code">./run.sh</code>
+            ClipGenie can't reach its server. Start it with&nbsp;
+            <code className="cg-code">./run.sh</code> and refresh this page.
           </span>
         </div>
       )}
-      {ollamaDown && !serverDown && (
+      {aiDown && !serverDown && (
         <div className="cg-alert cg-alert--warn" role="status">
           <span>
-            Ollama isn't running, so clips will use the basic picker instead of AI.
-            Start it with <code className="cg-code">ollama serve</code>
-          </span>
-        </div>
-      )}
-      {modelMissing && !serverDown && (
-        <div className="cg-alert cg-alert--warn" role="status">
-          <span>
-            The AI model isn't installed. Run&nbsp;
-            <code className="cg-code">ollama pull {health.ollama.model}</code>
+            The AI helper isn't ready, so clips will be chosen with a simpler method.{' '}
+            <button type="button" className="cg-dash-link" onClick={onOpenSettings}>See Settings</button>
           </span>
         </div>
       )}
@@ -72,23 +99,44 @@ export default function Dashboard({
       <section>
         <h2 className="cg-dash-section-title">Start something new</h2>
         <div className="cg-dash-start">
-          {START_OPTIONS.map((o) => (
-            <button key={o.id} type="button" className="cg-dash-start-card" disabled={serverDown}
-              onClick={() => onImport(o.id)}>
-              <span className="cg-dash-start-icon"><Icon name={o.icon} size={22} /></span>
-              <span className="cg-dash-start-title">{o.title}</span>
-              <span className="cg-dash-start-text">{o.text}</span>
+          <form className="cg-dash-start-card cg-dash-start-card--main" onSubmit={submitLink}>
+            <span className="cg-dash-start-icon"><Icon name="link" size={22} /></span>
+            <span className="cg-dash-start-title">Paste a YouTube link</span>
+            <span className="cg-dash-start-text">
+              Turn a talk or podcast you have the rights to use into Shorts.
+            </span>
+            <div className="cg-dash-link-row">
+              <input
+                type="url"
+                className="cg-input"
+                placeholder="https://www.youtube.com/watch?v=…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                disabled={serverDown}
+                aria-label="YouTube link"
+              />
+              <button type="submit" className="cg-btn cg-btn--primary" disabled={serverDown || !link.trim()}>
+                Continue
+              </button>
+            </div>
+          </form>
+
+          <div className="cg-dash-start-card cg-dash-start-card--main">
+            <span className="cg-dash-start-icon"><Icon name="upload" size={22} /></span>
+            <span className="cg-dash-start-title">Upload a video</span>
+            <span className="cg-dash-start-text">Choose an MP4 or MOV file from your computer.</span>
+            <button type="button" className="cg-btn cg-btn--primary cg-dash-start-btn" disabled={serverDown}
+              onClick={() => onImport('file')}>
+              Choose a video
             </button>
-          ))}
+          </div>
+
           {/* Not available yet: shown honestly, not clickable */}
           <div className="cg-dash-start-card cg-dash-start-card--soon" aria-disabled="true">
             <span className="cg-dash-start-icon"><Icon name="photo" size={22} /></span>
-            <span className="cg-dash-start-title">
-              Photos to video <span className="cg-dash-soon-tag">Coming soon</span>
-            </span>
-            <span className="cg-dash-start-text">
-              Turn a set of photographs into a video with slow zooms and pans.
-            </span>
+            <span className="cg-dash-start-title">Photos to video</span>
+            <span className="cg-dash-soon-tag">Coming soon</span>
+            <span className="cg-dash-start-text">Turn a set of photographs into a video.</span>
           </div>
         </div>
       </section>
@@ -96,10 +144,10 @@ export default function Dashboard({
       {/* Recent projects */}
       <section>
         <div className="cg-dash-section-head">
-          <h2 className="cg-dash-section-title">Recent project</h2>
-          {recent.length > 0 && (
+          <h2 className="cg-dash-section-title">Recent projects</h2>
+          {clips.length > 0 && (
             <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" onClick={onResume}>
-              See all {clips.length} videos
+              View all {clips.length} {clips.length === 1 ? 'video' : 'videos'}
             </button>
           )}
         </div>
@@ -117,32 +165,34 @@ export default function Dashboard({
         {recent.length > 0 ? (
           <div className="cg-dash-recent">
             {recent.map((c) => (
-              <button key={c.id} type="button" className="cg-dash-thumb" onClick={() => onOpenClip(c)}
-                aria-label={`Open ${c.title || `Clip ${c.id}`} in the editor`}>
-                <span className="cg-dash-thumb-frame">
+              <article key={c.id} className="cg-dash-project">
+                <button type="button" className="cg-dash-thumb" onClick={() => onOpenClip(c)}
+                  aria-label={`Open ${c.title || `Clip ${c.id}`} in the editor`}>
                   <video src={`/api/jobs/${jobId}/clips/${c.id}.mp4?v=${c.version || 0}#t=0.5`}
-                    preload="metadata" muted playsInline />
-                  <span className="cg-dash-thumb-dur">{Math.round(c.duration)}s</span>
-                </span>
-                <span className="cg-dash-thumb-title">{c.title || `Clip ${c.id}`}</span>
-              </button>
+                    preload="metadata" muted playsInline tabIndex={-1} />
+                </button>
+                <div className="cg-dash-project-body">
+                  <h3 className="cg-dash-project-title">{c.title || `Clip ${c.id}`}</h3>
+                  <p className="cg-dash-project-meta">
+                    {Math.round(c.duration)}s
+                    {edited[c.id] && <span> · Last edited {ago(edited[c.id])}</span>}
+                  </p>
+                  <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={() => onOpenClip(c)}>
+                    Continue editing
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         ) : !inProgress && (
           <div className="cg-dash-empty">
             <LeafTrio />
             <p className="cg-text-sm cg-text-secondary">
-              Your finished Shorts will appear here. Nothing yet: start with a link or an upload.
+              Your finished videos will appear here. Start with a link or an upload above.
             </p>
           </div>
         )}
       </section>
-
-      {musicCount === 0 && !serverDown && (
-        <p className="cg-text-xs cg-text-muted">
-          Tip: add a few licensed tracks in the Music library and ClipGenie will mix one under each clip.
-        </p>
-      )}
     </main>
   );
 }

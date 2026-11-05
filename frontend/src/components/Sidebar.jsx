@@ -18,9 +18,6 @@ export default function Sidebar({
   clipsCount = 0,
   isProcessing = false
 }) {
-  const ollamaOk = health?.ollama?.running && health?.ollama?.model_installed;
-  const whisperOk = health?.status !== 'down';
-
   return (
     <aside className="cg-sidebar" aria-label="Main Application Navigation">
       {/* Brand */}
@@ -61,19 +58,6 @@ export default function Sidebar({
         <Sprig width={92} tone="leaf" />
       </div>
 
-      {/* Local engine health */}
-      <div className="cg-sidebar-footer">
-        <div className="cg-engine-status-box">
-          <div className="cg-engine-row">
-            <span className={`cg-status-dot ${ollamaOk ? 'ok' : 'warn'}`} />
-            <span className="cg-engine-name">Ollama: {ollamaOk ? 'Qwen 2.5 ✓' : 'Offline'}</span>
-          </div>
-          <div className="cg-engine-row">
-            <span className={`cg-status-dot ${whisperOk ? 'ok' : 'error'}`} />
-            <span className="cg-engine-name">Whisper: {whisperOk ? 'Apple Metal ✓' : 'Offline'}</span>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }

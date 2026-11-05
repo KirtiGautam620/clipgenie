@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app import captions, captionstyles, jobs, music, rights, textmode, ytdl
+from app import captions, captionstyles, jobs, manifest, music, rights, textmode, ytdl
 from app.llm import OLLAMA_MODEL
 from app.storyboard.api import router as storyboard_router
 from app.pipeline import (Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_music,
@@ -331,6 +331,15 @@ def change_clip_captions(job_id: str, clip_id: int, body: CaptionEdit):
         raise HTTPException(409, str(e))
     except RuntimeError as e:
         raise HTTPException(500, str(e))
+
+
+@app.get("/api/jobs/{job_id}/clips/{clip_id}/manifest")
+def get_clip_manifest(job_id: str, clip_id: int):
+    """The clip's editing manifest: the one description of how it is made (see manifest.py).
+    Built from the saved clip, so every existing job has one. Words of an untrusted clip are
+    never included."""
+    clip = textmode.public(_clip(job_id, clip_id))
+    return manifest.validate(manifest.from_clip(clip))
 
 
 class EffectsEdit(BaseModel):

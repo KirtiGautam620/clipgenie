@@ -151,3 +151,16 @@
 .cg-status-dot.ok    { background: var(--cg-success); }
 .cg-status-dot.warn  { background: var(--cg-warning); }
 .cg-status-dot.error { background: var(--cg-error); }
+
+/* Narrow screens: the sidebar becomes a slim icon rail so pages keep their room */
+@media (max-width: 819px) {
+  .cg-sidebar { width: 60px; }
+  .cg-sidebar-header { padding: 0; justify-content: center; }
+  .cg-sidebar-logo-text,
+  .cg-sidebar-label,
+  .cg-sidebar-art,
+  .cg-sidebar-footer,
+  .cg-sidebar-count-badge { display: none; }
+  .cg-sidebar-nav { padding: 8px 6px; }
+  .cg-sidebar-item { justify-content: center; padding: 10px 0; }
+}

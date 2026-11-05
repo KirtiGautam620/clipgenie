@@ -67,8 +67,8 @@
   --cg-track-effects:    #8B5A44;
 
   /* ── Subtle grid background ──────────────────────────── */
-  --cg-grid-line:        rgba(40, 93, 70, 0.055);
-  --cg-grid-size:        28px;
+  --cg-grid-line:        rgba(40, 93, 70, 0.02);
+  --cg-grid-size:        36px;
 
   /* ── Typography ──────────────────────────────────────── */
   /* All system fonts: nothing to download or install. */

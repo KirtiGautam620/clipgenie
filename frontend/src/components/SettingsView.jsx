@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './SettingsView.css';
 
-export default function SettingsView({ health }) {
+export default function SettingsView({ health, musicCount = 0 }) {
   const [cleared, setCleared] = useState(false);
 
   const handleClearCache = () => {
@@ -67,6 +67,18 @@ export default function SettingsView({ health }) {
             </div>
             <span className={`cg-badge ${ffmpegOk ? 'cg-badge--success' : 'cg-badge--error'}`}>
               {ffmpegOk ? 'Binary Found ✓' : 'Missing (brew install ffmpeg)'}
+            </span>
+          </div>
+
+          <div className="cg-settings-item">
+            <div className="cg-settings-info">
+              <span className="cg-settings-label">Music library</span>
+              <span className="cg-text-xs cg-text-muted">
+                Licensed tracks ClipGenie can mix under your videos. Manage them in Music.
+              </span>
+            </div>
+            <span className={`cg-badge ${musicCount > 0 ? 'cg-badge--success' : 'cg-badge--warning'}`}>
+              {musicCount} {musicCount === 1 ? 'track' : 'tracks'}
             </span>
           </div>
         </section>
