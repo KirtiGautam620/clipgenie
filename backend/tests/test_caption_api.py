@@ -1,13 +1,14 @@
 """Tests for the caption endpoints: looks, preview picture, restyling and word fixes.
 The restyle tests use a real (tiny) video so the captions are really drawn again."""
 import json
+import shutil
 import subprocess
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app import captions, captionstyles, export, jobs, main, pipeline
+from app import captions, captionstyles, export, jobs, main, pipeline, render
 
 WORDS = [{"text": "hello", "start": 0.4, "end": 0.9}, {"text": "brave", "start": 1.0, "end": 1.5},
          {"text": "world", "start": 1.6, "end": 2.2}]
@@ -141,9 +142,11 @@ def test_music_is_mixed_back_in_after_a_caption_change(client, folders, monkeypa
     job, folder = make_job(folders[0], music={"track_id": "t1", "title": "S", "volume": 0.5, "license": "CC0",
                                               "attribution": "", "warning": None})
     mixed = []
-    monkeypatch.setattr(pipeline, "set_clip_music", lambda j, c, t, v: mixed.append((c, t, v)) or
-                        {"id": 1, "start": 0, "end": 2.6, "duration": 2.6, "music": None, "version": 5,
-                         "captions": json.loads((folder / "clips.json").read_text())["clips"][0]["captions"]})
+    track = {"id": "t1", "title": "S", "license_label": "CC0", "attribution": "", "warning": None}
+    monkeypatch.setattr(render.music, "get_track", lambda tid: track)
+    monkeypatch.setattr(render.music, "track_path", lambda t: folder / "t.wav")
+    monkeypatch.setattr(render.mix, "apply_music", lambda base, trk, out, vol: mixed.append(vol) or shutil.copyfile(base, out))
     r = client.post(f"/api/jobs/{job}/clips/1/captions", json={"preset": "pill"})
-    assert r.status_code == 200 and mixed == [(1, "t1", 0.5)]
+    assert r.status_code == 200 and mixed == [0.5]
     assert r.json()["captions"]["style"]["preset"] == "pill"
+    assert (folder / "clip_1_music.mp4").exists()

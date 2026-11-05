@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from app.audiofx import voice_filter
+from app.audiofx import has_audio, voice_filter
 from app.captions import headline_png, headline_y, render_track, strip_y, words_in_clip
 from app.captionstyles import CaptionStyle, HeadlineStyle, resolve
 from app.effects import zoom_filter
@@ -50,21 +50,51 @@ def base_path(out: Path) -> Path:
     return out.with_name(out.stem + "_base.mp4")
 
 
+def fades_active(fades: dict | None) -> bool:
+    return bool(fades) and (float(fades.get("in", 0)) > 0 or float(fades.get("out", 0)) > 0)
+
+
+def _tail(base: Path, filter_graph: str, label: str, fades: dict | None, fade_audio: bool,
+          duration: float) -> tuple[str, str, list[str]]:
+    """The end of the text pass: (filter graph, final picture label, audio options).
+    With no fades this is exactly what the pass always did (picture as drawn, sound copied).
+    With fades the picture fades in/out in the same encode (no extra generation), and the sound
+    fades with it unless the user turned that off (then it is re-encoded only when it must fade)."""
+    if not fades_active(fades):
+        return filter_graph, label, ["-c:a", "copy"]
+    fin, fout = float(fades.get("in", 0)), float(fades.get("out", 0))
+    video, audio = [], []
+    if fin > 0:
+        video.append(f"fade=t=in:st=0:d={fin:.3f}")
+        audio.append(f"afade=t=in:st=0:d={fin:.3f}")
+    if fout > 0:
+        start = max(0.0, duration - fout)
+        video.append(f"fade=t=out:st={start:.3f}:d={fout:.3f}")
+        audio.append(f"afade=t=out:st={start:.3f}:d={fout:.3f}")
+    filter_graph += f";[{label}]{','.join(video)}[vf]"
+    if fade_audio and has_audio(base):
+        return filter_graph, "vf", ["-af", ",".join(audio), "-c:a", "aac", "-b:a", "160k"]
+    return filter_graph, "vf", ["-c:a", "copy"]
+
+
 def apply_captions(base: Path, cap_words: list[dict], style: CaptionStyle, out: Path,
-                   work: Path) -> None:
-    """Stage 2: lay the captions over the caption-free base clip. The sound is copied as it is."""
+                   work: Path, fades: dict | None = None, fade_audio: bool = True) -> None:
+    """Stage 2: lay the captions over the caption-free base clip. The sound is copied as it is
+    (unless fades are asked for: then the picture, captions included, fades in and out)."""
     duration = float(subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(base)],
         check=True, capture_output=True, text=True).stdout)
     track = render_track(cap_words, duration, style, work, out.stem)
     if track is None:                       # nobody speaks: no captions to draw
-        shutil.copyfile(base, out)
+        apply_no_text(base, out, fades, fade_audio)
         return
+    graph, label, audio = _tail(
+        base, f"[0:v][1:v]overlay=0:{strip_y(style, OUT_H)}:eof_action=pass:format=auto[v]", "v",
+        fades, fade_audio, duration)
     cmd = ["ffmpeg", "-loglevel", "error", "-y", "-i", str(base), "-i", str(track),
-           "-filter_complex",
-           f"[0:v][1:v]overlay=0:{strip_y(style, OUT_H)}:eof_action=pass:format=auto[v]",
-           "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-           "-pix_fmt", "yuv420p", "-c:a", "copy", "-t", f"{duration:.3f}", str(out)]
+           "-filter_complex", graph,
+           "-map", f"[{label}]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+           "-pix_fmt", "yuv420p", *audio, "-t", f"{duration:.3f}", str(out)]
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
@@ -82,21 +112,25 @@ def _duration(media: Path) -> float:
         check=True, capture_output=True, text=True).stdout)
 
 
-def apply_headline(base: Path, text: str, style: HeadlineStyle, out: Path, work: Path) -> None:
+def apply_headline(base: Path, text: str, style: HeadlineStyle, out: Path, work: Path,
+                   fades: dict | None = None, fade_audio: bool = True) -> None:
     """Stage 2 alternative: lay a headline card over the caption-free base clip. It fades in, stays
-    for style.seconds (0 = the whole clip) and fades out. The sound is copied as it is."""
+    for style.seconds (0 = the whole clip) and fades out. The sound is copied as it is
+    (unless the whole picture is asked to fade)."""
     duration = _duration(base)
     png = work / f"{out.stem}_headline.png"
     png.write_bytes(headline_png(text, style))
-    fades = f"fade=t=in:st=0:d={FADE}:alpha=1"
+    card_fades = f"fade=t=in:st=0:d={FADE}:alpha=1"
     if style.seconds and style.seconds < duration:
-        fades += f",fade=t=out:st={style.seconds - FADE:.2f}:d={FADE}:alpha=1"
+        card_fades += f",fade=t=out:st={style.seconds - FADE:.2f}:d={FADE}:alpha=1"
+    graph, label, audio = _tail(
+        base, f"[1:v]format=rgba,{card_fades}[h];[0:v][h]overlay=0:{headline_y(style, OUT_H)}:eof_action=pass:format=auto[v]",
+        "v", fades, fade_audio, duration)
     cmd = ["ffmpeg", "-loglevel", "error", "-y", "-i", str(base),
            "-loop", "1", "-framerate", "25", "-t", f"{duration:.3f}", "-i", str(png),
-           "-filter_complex",
-           f"[1:v]format=rgba,{fades}[h];[0:v][h]overlay=0:{headline_y(style, OUT_H)}:eof_action=pass:format=auto[v]",
-           "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-           "-pix_fmt", "yuv420p", "-c:a", "copy", "-t", f"{duration:.3f}", str(out)]
+           "-filter_complex", graph,
+           "-map", f"[{label}]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+           "-pix_fmt", "yuv420p", *audio, "-t", f"{duration:.3f}", str(out)]
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
@@ -105,9 +139,21 @@ def apply_headline(base: Path, text: str, style: HeadlineStyle, out: Path, work:
         png.unlink(missing_ok=True)
 
 
-def apply_no_text(base: Path, out: Path) -> None:
-    """The finished clip with no text at all: the caption-free base, as it is."""
-    shutil.copyfile(base, out)
+def apply_no_text(base: Path, out: Path, fades: dict | None = None, fade_audio: bool = True) -> None:
+    """The finished clip with no text at all: the caption-free base, as it is
+    (or, when fades are asked for, the same picture fading in and out)."""
+    if not fades_active(fades):
+        shutil.copyfile(base, out)
+        return
+    duration = _duration(base)
+    graph, label, audio = _tail(base, "[0:v]null[v]", "v", fades, fade_audio, duration)
+    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-i", str(base), "-filter_complex", graph,
+           "-map", f"[{label}]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+           "-pix_fmt", "yuv420p", *audio, "-t", f"{duration:.3f}", str(out)]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"ffmpeg failed: {e.stderr[-400:]}") from e
 
 
 def render_base(video: Path, start: float, end: float, base: Path, framing: str = "crop",

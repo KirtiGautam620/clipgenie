@@ -460,3 +460,15 @@
   align-items: center;
   justify-content: space-between;
 }
+
+.cg-panel-subhead {
+  margin: 6px 0 -2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cg-border-subtle);
+  font-family: var(--cg-font-body);
+  font-size: 11px;
+  font-weight: var(--cg-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cg-text-muted);
+}

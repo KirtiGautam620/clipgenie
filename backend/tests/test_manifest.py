@@ -104,7 +104,10 @@ def bad(**changes):
     (bad(framing__mode="stretch"), "crop or blur"),
     (bad(effects__zoom=2.0), "Zoom must be between"),
     (bad(effects__pan="up"), "Pan must be"),
-    (bad(fades__in=0.5), "fades are not supported yet"),
+    (bad(fades__in=5), "fades.in must be between"),
+    (bad(fades__in=1.5, fades__out=1.0), "longer than the video"),
+    (bad(clip__end=0.5), "at least"),
+    (bad(audio__fade_with_video="yes"), "fade_with_video"),
     (bad(transitions=[{"type": "fade"}]), "Transitions are not supported yet"),
     (bad(text__mode="banner"), "text.mode"),
     (bad(text__mode="headline"), "headline needs its text"),
@@ -126,11 +129,10 @@ def test_missing_section_and_non_object_are_refused():
         manifest.validate([])
 
 
-def test_caption_words_out_of_order_are_refused():
+def test_a_caption_word_that_ends_before_it_starts_is_refused():
     m = manifest.default_manifest(0, 2)
-    m["text"]["captions"] = {"style": {}, "words": [{"text": "a", "start": 1.5, "end": 1.6},
-                                                    {"text": "b", "start": 0.2, "end": 0.3}]}
-    with pytest.raises(ValueError, match="out of order"):
+    m["text"]["captions"] = {"style": {}, "words": [{"text": "a", "start": 1.5, "end": 1.2}]}
+    with pytest.raises(ValueError, match="ends before it starts"):
         manifest.validate(m)
 
 

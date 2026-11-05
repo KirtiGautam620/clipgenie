@@ -4,14 +4,14 @@ import shutil
 import urllib.request
 from contextlib import asynccontextmanager
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app import captions, captionstyles, jobs, manifest, music, rights, textmode, ytdl
 from app.llm import OLLAMA_MODEL
 from app.storyboard.api import router as storyboard_router
-from app.pipeline import (Busy, DEFAULTS, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_music,
+from app.pipeline import (Busy, DEFAULTS, apply_manifest, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_music,
                           set_clip_text)
 
 
@@ -340,6 +340,24 @@ def get_clip_manifest(job_id: str, clip_id: int):
     never included."""
     clip = textmode.public(_clip(job_id, clip_id))
     return manifest.validate(manifest.from_clip(clip))
+
+
+@app.put("/api/jobs/{job_id}/clips/{clip_id}/manifest")
+def put_clip_manifest(job_id: str, clip_id: int, document: dict = Body(...)):
+    """The editor's single 'Apply': make the clip from this whole manifest (trim, framing, zoom/pan,
+    fades, music). Only the changed stages are rebuilt. Text is changed with its own tools.
+    A new version of the clip, so its checklist must be confirmed again."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, apply_manifest(job_id, clip_id, document))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
 
 
 class EffectsEdit(BaseModel):

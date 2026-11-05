@@ -4,12 +4,13 @@
      "clip":        {"start": 0.0, "end": 25.14},            seconds in the source video (the cut)
      "framing":     {"mode": "crop" | "blur"},
      "effects":     {"zoom": 1.0, "pan": "none"},            see effects.py
-     "fades":       {"in": 0.0, "out": 0.0},                 RESERVED: must stay 0 in version 1
+     "fades":       {"in": 0.0, "out": 0.0},                 picture (and text) fade, seconds, 0 to 3
      "transitions": [],                                      RESERVED: must stay empty in version 1
      "text":        {"mode": "captions" | "pending" | "headline" | "none",
                      "captions": {"style": {...}, "words": [...]} | null,
                      "headline": {"text": "...", "style": {...}} | null},
      "audio":       {"clean_voice": true,
+                     "fade_with_video": true,                 the sound fades with the picture
                      "music": {"track_id": "...", "volume": 0.6} | null}}
 
 Where it comes from: nothing new is stored. `from_clip()` builds the manifest from the clip entry
@@ -22,10 +23,11 @@ Who reads it:
   * the page: GET /api/jobs/{job}/clips/{n}/manifest returns the same document, so a preview of
     an effect can be computed from the very settings the export will use.
 
-Reserved fields (fades, transitions) are validated but refused unless they are at their defaults:
+`transitions` is reserved: it must stay empty until a clip can have more than one segment, because
 accepting a value the renderer would ignore would make preview and export disagree.
 Words of a clip whose speech is not trusted are never put in the manifest (see textmode.py).
 """
+import copy
 import math
 from copy import deepcopy
 
@@ -35,6 +37,7 @@ SCHEMA_VERSION = 1
 FRAMINGS = ("crop", "blur")
 TEXT_MODES = ("captions", "pending", "headline", "none")
 MAX_FADE = 3.0
+MIN_CLIP_SECONDS = 1.0
 MAX_WORDS = 20000
 
 
@@ -50,7 +53,7 @@ def default_manifest(start: float, end: float) -> dict:
         "fades": {"in": 0.0, "out": 0.0},
         "transitions": [],
         "text": {"mode": "captions", "captions": None, "headline": None},
-        "audio": {"clean_voice": True, "music": None},
+        "audio": {"clean_voice": True, "fade_with_video": True, "music": None},
     }
 
 
@@ -64,6 +67,13 @@ def from_clip(clip: dict) -> dict:
         m["framing"]["mode"] = clip["framing_choice"]
     if clip.get("effects"):
         m["effects"] = {**m["effects"], **clip["effects"]}
+    # settings that only the manifest knows about are saved on the clip under their own names
+    if clip.get("fades"):
+        m["fades"] = {**m["fades"], **clip["fades"]}
+    if "fade_with_video" in clip:
+        m["audio"]["fade_with_video"] = clip["fade_with_video"]
+    if "clean_voice" in clip:
+        m["audio"]["clean_voice"] = clip["clean_voice"]
 
     state = textmode.text_state(clip)
     mode = state.get("mode") if state.get("mode") in TEXT_MODES else "captions"
@@ -113,6 +123,8 @@ def validate(manifest: dict) -> dict:
     end = _number(span.get("end"), "clip.end", 0, 86400 * 4)
     if end <= start:
         raise ValueError("clip.end must be after clip.start.")
+    if end - start < MIN_CLIP_SECONDS:
+        raise ValueError(f"A video must be at least {MIN_CLIP_SECONDS:g} second long.")
 
     mode = _section(manifest, "framing").get("mode")
     if mode not in FRAMINGS:
@@ -122,10 +134,11 @@ def validate(manifest: dict) -> dict:
            "framing": {"mode": mode}, "effects": effects.normalize(_section(manifest, "effects"))}
 
     fades = _section(manifest, "fades")
-    for side in ("in", "out"):
-        if _number(fades.get(side, 0.0), f"fades.{side}", 0, MAX_FADE) != 0.0:
-            raise ValueError("Video fades are not supported yet: fades.in and fades.out must be 0.")
-    out["fades"] = {"in": 0.0, "out": 0.0}
+    fade_in = _number(fades.get("in", 0.0), "fades.in", 0, MAX_FADE)
+    fade_out = _number(fades.get("out", 0.0), "fades.out", 0, MAX_FADE)
+    if fade_in + fade_out > end - start:
+        raise ValueError("The fades together are longer than the video.")
+    out["fades"] = {"in": round(fade_in, 2), "out": round(fade_out, 2)}
     if _section(manifest, "transitions", list):
         raise ValueError("Transitions are not supported yet: transitions must be empty.")
     out["transitions"] = []
@@ -157,7 +170,10 @@ def validate(manifest: dict) -> dict:
             raise ValueError("audio.music needs a track_id.")
         music = {"track_id": str(music["track_id"]),
                  "volume": _number(music.get("volume", 0.6), "audio.music.volume", 0, 1)}
-    out["audio"] = {"clean_voice": clean, "music": music}
+    fade_audio = audio.get("fade_with_video", True)
+    if not isinstance(fade_audio, bool):
+        raise ValueError("audio.fade_with_video must be true or false.")
+    out["audio"] = {"clean_voice": clean, "fade_with_video": fade_audio, "music": music}
     return out
 
 
@@ -167,17 +183,28 @@ def _check_captions(captions, length: float) -> dict:
     words = captions["words"]
     if len(words) > MAX_WORDS:
         raise ValueError("Too many caption words.")
-    clean, last = [], 0.0
+    clean = []
     for i, w in enumerate(words):
         if not isinstance(w, dict) or not str(w.get("text", "")).strip():
             raise ValueError(f"Caption word {i + 1} needs text.")
         s = _number(w.get("start"), f"Caption word {i + 1} start", 0, length + 5)
         e = _number(w.get("end"), f"Caption word {i + 1} end", 0, length + 5)
-        if e < s or s < last - 0.5:
-            raise ValueError(f"Caption word {i + 1} has times out of order.")
-        last = s
+        if e < s:
+            raise ValueError(f"Caption word {i + 1} ends before it starts.")
         clean.append({**w, "text": str(w["text"]), "start": s, "end": e})
     return {"style": dict(captions.get("style") or {}), "words": clean}
+
+
+def trim_captions(captions: dict, offset: float, length: float) -> dict:
+    """Caption words after the video's start moved later by `offset` seconds and its length became
+    `length`: times shift earlier by `offset`; a word that is cut in half by either new edge is
+    dropped, because it would show text whose sound is no longer fully there."""
+    kept = []
+    for w in captions["words"]:
+        s, e = w["start"] - offset, w["end"] - offset
+        if s >= -0.05 and e <= length + 0.05:
+            kept.append({**w, "start": max(0.0, s), "end": min(length, e)})
+    return {"style": copy.deepcopy(captions["style"]), "words": kept}
 
 
 def check_renderable(manifest: dict) -> None:

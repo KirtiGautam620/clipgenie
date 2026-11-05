@@ -28,6 +28,13 @@ function describeZoom(effects) {
   return parts.join(', ');
 }
 
+function describeFades(fades) {
+  const fin = fades?.in || 0;
+  const fout = fades?.out || 0;
+  if (!fin && !fout) return 'None';
+  return [fin ? `in ${fin}s` : null, fout ? `out ${fout}s` : null].filter(Boolean).join(', ');
+}
+
 function describeText(text) {
   if (text?.mode === 'headline') return 'Your headline';
   if (text?.mode === 'none') return 'No text';
@@ -116,29 +123,73 @@ const PAN_LABELS = {
   right: 'Slide right to left',
 };
 
-function EffectsPanel({ jobId, clip, onApplied }) {
-  const [zoom, setZoom] = useState(clip.effects?.zoom ?? 1);
-  const [pan, setPan] = useState(clip.effects?.pan || 'none');
+const round1 = (n) => Math.round(n * 10) / 10;
+
+// Effects, fades and trim. One panel, one Apply: everything is sent to the server as the clip's
+// editing manifest, and the server remakes only the parts that changed.
+function EffectsPanel({ jobId, clip, onApplied, onScrub }) {
+  const [man, setMan] = useState(null);        // the clip's manifest, as the server has it
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState('none');
+  const [fadeIn, setFadeIn] = useState(0);
+  const [fadeOut, setFadeOut] = useState(0);
+  const [fadeSound, setFadeSound] = useState(true);
+  const [trimStart, setTrimStart] = useState(0);   // seconds from the start of the video as it is now
+  const [trimEnd, setTrimEnd] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    setZoom(clip.effects?.zoom ?? 1);
-    setPan(clip.effects?.pan || 'none');
-    setError('');
-  }, [clip.id, clip.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const length = man ? man.clip.end - man.clip.start : 0;
 
-  const changed = Math.abs((clip.effects?.zoom ?? 1) - zoom) > 0.001
-    || (clip.effects?.pan || 'none') !== pan;
+  // load the manifest, and again whenever the clip is remade
+  useEffect(() => {
+    let cancelled = false;
+    setError('');
+    getJSON(`/api/jobs/${jobId}/clips/${clip.id}/manifest`).then((m) => {
+      if (cancelled) return;
+      setMan(m);
+      setZoom(m.effects.zoom);
+      setPan(m.effects.pan);
+      setFadeIn(m.fades.in);
+      setFadeOut(m.fades.out);
+      setFadeSound(m.audio.fade_with_video);
+      setTrimStart(0);
+      setTrimEnd(round1(m.clip.end - m.clip.start));
+    }).catch((e) => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+  }, [jobId, clip.id, clip.version]);
+
+  if (!man) {
+    return (
+      <div className="cg-panel-content">
+        <div className="cg-panel-header"><h3 className="cg-heading-sm">Effects</h3></div>
+        {error ? <p className="cg-text-xs cg-text-error">{error}</p> : <p className="cg-text-xs cg-text-muted">Loading…</p>}
+      </div>
+    );
+  }
+
+  const trimmed = trimStart > 0.04 || trimEnd < round1(length) - 0.04;
+  const changed = trimmed
+    || Math.abs(man.effects.zoom - zoom) > 0.001 || man.effects.pan !== pan
+    || Math.abs(man.fades.in - fadeIn) > 0.001 || Math.abs(man.fades.out - fadeOut) > 0.001
+    || man.audio.fade_with_video !== fadeSound;
+  const fadesToLong = fadeIn + fadeOut > (trimEnd - trimStart);
+  const kept = round1(trimEnd - trimStart);
 
   async function apply() {
     setBusy(true);
     setError('');
     try {
-      const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/effects`, {
-        method: 'POST',
+      const doc = JSON.parse(JSON.stringify(man));
+      doc.effects = { zoom, pan };
+      doc.fades = { in: fadeIn, out: fadeOut };
+      doc.audio.fade_with_video = fadeSound;
+      doc.clip = { start: round1(man.clip.start + trimStart), end: round1(man.clip.start + trimEnd) };
+      if (!trimmed) doc.clip = man.clip;     // untouched: send the exact original range back
+      const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/manifest`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zoom, pan }),
+        body: JSON.stringify(doc),
       });
       onApplied(updated);
     } catch (e) {
@@ -154,10 +205,11 @@ function EffectsPanel({ jobId, clip, onApplied }) {
         <h3 className="cg-heading-sm">Effects</h3>
       </div>
       <p className="cg-text-xs cg-text-muted">
-        A slow zoom and a sideways slide, applied to the picture only. Captions stay sharp.
-        Applying it makes the picture again, which takes a little while, and the clip needs its
-        checklist confirmed again.
+        Changes are applied to the real video, and the captions stay sharp. Applying remakes the video,
+        which takes a little while, and it needs its checklist confirmed again.
       </p>
+
+      <h4 className="cg-panel-subhead">Motion</h4>
       <label className="cg-field">
         <span className="cg-text-sm">Zoom: {zoom.toFixed(2)}×</span>
         <input className="cg-range" type="range" min="1" max="1.5" step="0.05" value={zoom} disabled={busy}
@@ -169,10 +221,47 @@ function EffectsPanel({ jobId, clip, onApplied }) {
           {Object.entries(PAN_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       </label>
+
+      <h4 className="cg-panel-subhead">Fades</h4>
+      <label className="cg-field">
+        <span className="cg-text-sm">Fade in: {fadeIn.toFixed(1)}s</span>
+        <input className="cg-range" type="range" min="0" max="3" step="0.1" value={fadeIn} disabled={busy}
+          onChange={(e) => setFadeIn(parseFloat(e.target.value))} />
+      </label>
+      <label className="cg-field">
+        <span className="cg-text-sm">Fade out: {fadeOut.toFixed(1)}s</span>
+        <input className="cg-range" type="range" min="0" max="3" step="0.1" value={fadeOut} disabled={busy}
+          onChange={(e) => setFadeOut(parseFloat(e.target.value))} />
+      </label>
+      <label className="cg-toggle">
+        <input type="checkbox" checked={fadeSound} disabled={busy} onChange={(e) => setFadeSound(e.target.checked)} />
+        <span className="cg-toggle-track" />
+        <span className="cg-toggle-label">Fade the sound with the picture</span>
+      </label>
+
+      <h4 className="cg-panel-subhead">Trim</h4>
+      <label className="cg-field">
+        <span className="cg-text-sm">Start at {trimStart.toFixed(1)}s</span>
+        <input className="cg-range" type="range" min="0" max={Math.max(0, round1(length) - 1)} step="0.1"
+          value={trimStart} disabled={busy}
+          onChange={(e) => { const v = parseFloat(e.target.value); setTrimStart(v); if (trimEnd - v < 1) setTrimEnd(round1(v + 1)); onScrub(v); }} />
+      </label>
+      <label className="cg-field">
+        <span className="cg-text-sm">End at {trimEnd.toFixed(1)}s</span>
+        <input className="cg-range" type="range" min="1" max={round1(length)} step="0.1" value={trimEnd} disabled={busy}
+          onChange={(e) => { const v = parseFloat(e.target.value); setTrimEnd(v); if (v - trimStart < 1) setTrimStart(round1(Math.max(0, v - 1))); onScrub(Math.max(0, v - 0.05)); }} />
+      </label>
+      <p className="cg-text-xs cg-text-muted">
+        {trimmed ? `Keeps ${kept}s of ${round1(length)}s. ` : `Whole video: ${round1(length)}s. `}
+        Trimming only shortens a video and cannot be undone here: to get the full length back, make the
+        videos again with Regenerate.
+      </p>
+
+      {fadesToLong && <p className="cg-text-xs cg-text-error">The two fades are longer than the video you are keeping.</p>}
       {error && <p className="cg-text-xs cg-text-error">{error}</p>}
       <button type="button" className="cg-btn cg-btn--primary cg-btn--sm"
-        disabled={!changed || busy} onClick={apply}>
-        {busy ? 'Making the picture…' : 'Apply picture effects'}
+        disabled={!changed || busy || fadesToLong} onClick={apply}>
+        {busy ? 'Making the video…' : 'Apply changes'}
       </button>
     </div>
   );
@@ -278,7 +367,7 @@ export default function StudioEditor({
               </div>
             )}
             {leftTab === 'captions' && <CaptionsStylePanel jobId={jobId} clip={clip} onApplied={applied} />}
-            {leftTab === 'picture' && <EffectsPanel jobId={jobId} clip={clip} onApplied={applied} />}
+            {leftTab === 'picture' && <EffectsPanel jobId={jobId} clip={clip} onApplied={applied} onScrub={handleSeek} />}
             {leftTab === 'audio' && <MusicPanel jobId={jobId} clip={clip} tracks={musicTracks} onApplied={applied} />}
           </div>
         </aside>
@@ -328,6 +417,8 @@ export default function StudioEditor({
               <dd>{cutInPause ? 'Start and end sit in natural pauses' : 'Short lead-in and tail around the speech'}</dd>
               <dt>Zoom</dt>
               <dd>{describeZoom(clip.effects)}</dd>
+              <dt>Fades</dt>
+              <dd>{describeFades(clip.fades)}</dd>
               <dt>Voice</dt>
               <dd>{describeVoice(clip.audio)}</dd>
               <dt>Text</dt>

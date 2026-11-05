@@ -2,6 +2,7 @@
 approved) or no text, and export waits for that choice. Fixtures are made up; the videos are tiny
 real files so the headline and "no text" renders are checked on actual pixels."""
 import json
+import shutil
 import subprocess
 
 import numpy as np
@@ -9,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app import captions, captionstyles, export, jobs, main, pipeline, textmode
+from app import captions, captionstyles, export, jobs, main, pipeline, render, textmode
 from tests.test_caption_api import make_job
 from tests.test_quality import HINDI, words
 from tests.test_text_quality_pipeline import make_transcript_job
@@ -316,9 +317,12 @@ def test_music_is_mixed_back_after_a_text_change(client, folders, monkeypatch):
     job, folder = make_pending_job(folders[0], music={"track_id": "t1", "title": "S", "volume": 0.5,
                                                       "license": "CC0", "attribution": "", "warning": None})
     mixed = []
-    monkeypatch.setattr(pipeline, "set_clip_music", lambda j, c, t, v: mixed.append((c, t, v)) or saved(folder))
+    track = {"id": "t1", "title": "S", "license_label": "CC0", "attribution": "", "warning": None}
+    monkeypatch.setattr(render.music, "get_track", lambda tid: track)
+    monkeypatch.setattr(render.music, "track_path", lambda t: folder / "t.wav")
+    monkeypatch.setattr(render.mix, "apply_music", lambda base, trk, out, vol: mixed.append(vol) or shutil.copyfile(base, out))
     assert client.post(f"/api/jobs/{job}/clips/1/text", json={"mode": "none"}).status_code == 200
-    assert mixed == [(1, "t1", 0.5)]
+    assert mixed == [0.5]
 
 
 def test_unknown_clip_and_job(client, folders):

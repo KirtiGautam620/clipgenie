@@ -665,3 +665,7 @@ input, select, textarea {
   color: var(--cg-accent);
   font-weight: 700;
 }
+
+.cg-text-error {
+  color: var(--cg-error);
+}

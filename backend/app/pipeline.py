@@ -1,13 +1,13 @@
 """The whole job in one go: transcribe -> choose moments -> edit clips."""
+import copy
 import json
 import threading
 
-from app import (captionstyles, cuts, effects, hinglish, jobs, manifest, music, quality, rights, textmode,
-                 ytdl)
+from app import (captionstyles, cuts, effects, hinglish, jobs, manifest, music, quality, render, rights,
+                 textmode, ytdl)
 from app.captions import words_in_clip
 from app.clips import pick_clips
-from app.export import (apply_captions, apply_headline, apply_no_text, base_path, export_clip,
-                        render_base)
+from app.export import base_path, export_clip
 from app.highlights import pick_ai_clips
 from app.mix import apply_music
 from app.transcribe import extract_audio, transcribe
@@ -34,27 +34,6 @@ def _mix_clip(folder, clip_id: int, track: dict, volume: float) -> dict:
     return _music_info(track, volume)
 
 
-def set_clip_music(job_id: str, clip_id: int, track_id: str | None, volume: float) -> dict:
-    """Change (or remove) the music of one finished clip. Only the audio is re-mixed."""
-    folder = jobs.job_dir(job_id)
-    clips_file = folder / "clips.json"
-    data = json.loads(clips_file.read_text())
-    clip = next((c for c in data["clips"] if c["id"] == clip_id), None)
-    if clip is None:
-        raise KeyError("Unknown clip")
-    if track_id is None:
-        (folder / f"clip_{clip_id}_music.mp4").unlink(missing_ok=True)
-        clip["music"] = None
-    else:
-        track = music.get_track(track_id)
-        if track is None:
-            raise KeyError("Unknown music track")
-        clip["music"] = _mix_clip(folder, clip_id, track, volume)
-    clip["version"] = clip.get("version", 0) + 1   # lets the page reload the video
-    jobs.write_atomic(clips_file, json.dumps(data, ensure_ascii=False))
-    return clip
-
-
 class Busy(RuntimeError):
     """Another video is being processed right now."""
 
@@ -69,21 +48,67 @@ def _load_clip(job_id: str, clip_id: int):
     return folder, clips_file, data, clip, folder / f"clip_{clip_id}.mp4"
 
 
-def _redraw(job_id: str, clip_id: int, folder, clips_file, data, clip, out, draw) -> dict:
-    """Draw the clip's text layer again (draw(base, out) does it), then mix the music back in.
-    Only one heavy job at a time; a new version of the clip, so its checklist resets."""
+def _sync_clip(clip: dict, old: dict, new: dict, result: dict) -> None:
+    """After a successful render, bring the clip entry in line with the manifest it was made from
+    (older parts of the app, and old projects, read these fields)."""
+    clip["effects"] = copy.deepcopy(new["effects"])
+    clip["framing_choice"] = new["framing"]["mode"]
+    clip["fades"] = copy.deepcopy(new["fades"])
+    clip["fade_with_video"] = new["audio"]["fade_with_video"]
+    clip["clean_voice"] = new["audio"]["clean_voice"]
+    if new["clip"] != old["clip"]:             # trimmed: the saved cut, length and speech range follow
+        span = new["clip"]
+        if clip.get("cut"):
+            clip["cut"]["cut_start"], clip["cut"]["cut_end"] = span["start"], span["end"]
+        clip["duration"] = round(span["end"] - span["start"], 1)
+        if "start" in clip and "end" in clip:
+            clip["start"], clip["end"] = max(clip["start"], span["start"]), min(clip["end"], span["end"])
+    info = result.get("framing")
+    if info:                                   # the picture was made again
+        info = dict(info)
+        clip["audio"] = info.pop("audio", clip.get("audio"))
+        clip["framing"] = info
+    if new["text"]["captions"] is not None:
+        clip["captions"] = copy.deepcopy(new["text"]["captions"])
+    if render.MUSIC in result["stages"]:
+        wanted = new["audio"]["music"]
+        clip["music"] = _music_info(result["music"], wanted["volume"]) if wanted else None
+
+
+def _apply(job_id: str, clip_id: int, change, force=frozenset()) -> dict:
+    """THE way a finished clip is edited. Under the one-job-at-a-time lock it
+      1. builds the clip's manifest,  2. lets `change(clip, manifest)` edit it (and refuse bad edits),
+      3. renders only the stages that differ (render.py, written safely),  4. saves the result.
+    A real change is a new version of the clip, so its copyright checklist must be confirmed again."""
     if not heavy_job_lock.acquire(blocking=False):
         raise Busy("ClipGenie is busy processing a video. Try again in a minute.")
     try:
-        draw(base_path(out), out)
-        if clip.get("music"):     # the picture changed, so mix the music under it again
-            jobs.write_atomic(clips_file, json.dumps(data, ensure_ascii=False))
-            return set_clip_music(job_id, clip_id, clip["music"]["track_id"], clip["music"]["volume"])
+        folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
+        old = manifest.validate(manifest.from_clip(clip))
+        m = copy.deepcopy(old)
+        change(clip, m)
+        new = manifest.validate(m)
+        result = render.render(folder, clip_id, old, new, force)
+        if not result["stages"] and clip == _load_clip(job_id, clip_id)[3]:
+            return clip                         # nothing to change
+        _sync_clip(clip, old, new, result)
         clip["version"] = clip.get("version", 0) + 1   # lets the page reload the video
         jobs.write_atomic(clips_file, json.dumps(data, ensure_ascii=False))
         return clip
     finally:
         heavy_job_lock.release()
+
+
+def set_clip_music(job_id: str, clip_id: int, track_id: str | None, volume: float) -> dict:
+    """Change (or remove) the music of one finished clip. Only the audio is re-mixed."""
+    def change(clip, m):
+        if track_id is None:
+            m["audio"]["music"] = None
+        else:
+            if music.get_track(track_id) is None:
+                raise KeyError("Unknown music track")
+            m["audio"]["music"] = {"track_id": track_id, "volume": volume}
+    return _apply(job_id, clip_id, change, force={render.MUSIC})
 
 
 def set_clip_captions(job_id: str, clip_id: int, preset: str | None, overrides: dict,
@@ -93,50 +118,37 @@ def set_clip_captions(job_id: str, clip_id: int, preset: str | None, overrides: 
     Only the captions are drawn again (over the saved caption-free base clip), then the music is
     mixed back in. The change is a new version of the clip, so its checklist must be confirmed again.
     """
-    folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
-    state = textmode.text_state(clip)
-    if textmode.is_untrusted(clip):
-        raise ValueError(textmode.CAPTIONS_UNAVAILABLE)
-    if state["mode"] != "captions":
-        raise ValueError("This clip is showing a headline or no text. Switch it back to captions first.")
-    caps = clip.get("captions")
-    if not caps or not base_path(out).exists():
-        raise ValueError("This clip was made before captions could be changed. "
-                         "Make new clips from this video to edit its captions.")
+    def change(clip, m):
+        _, _, _, _, out = _load_clip(job_id, clip_id)
+        state = textmode.text_state(clip)
+        if textmode.is_untrusted(clip):
+            raise ValueError(textmode.CAPTIONS_UNAVAILABLE)
+        if state["mode"] != "captions":
+            raise ValueError("This clip is showing a headline or no text. Switch it back to captions first.")
+        caps = clip.get("captions")
+        if not caps or not base_path(out).exists():
+            raise ValueError("This clip was made before captions could be changed. "
+                             "Make new clips from this video to edit its captions.")
 
-    stored = {k: v for k, v in caps["style"].items() if k != "preset"}
-    style = (captionstyles.resolve(preset, overrides) if preset
-             else captionstyles.resolve(caps["style"]["preset"], {**stored, **overrides}))
-    words = caps["words"]
-    if texts is not None:
-        if len(texts) != len(words):
-            raise ValueError("The caption words do not match this clip. Reload and try again.")
-        cleaned = [t.strip() for t in texts]
-        if any(not t or len(t) > 40 for t in cleaned):
-            raise ValueError("Each caption word must be 1 to 40 characters.")
-        words = [{**w, "text": t} for w, t in zip(words, cleaned)]
-    if style.script != caps["style"].get("script", "original"):   # Hindi letters <-> Hinglish
-        words = hinglish.convert_words(words, style.script)
-
-    def draw(base, target):
-        apply_captions(base, words, style, target, folder)
-        clip["captions"] = {"style": style.as_dict(), "words": words}
-    return _redraw(job_id, clip_id, folder, clips_file, data, clip, out, draw)
+        stored = {k: v for k, v in caps["style"].items() if k != "preset"}
+        style = (captionstyles.resolve(preset, overrides) if preset
+                 else captionstyles.resolve(caps["style"]["preset"], {**stored, **overrides}))
+        words = caps["words"]
+        if texts is not None:
+            if len(texts) != len(words):
+                raise ValueError("The caption words do not match this clip. Reload and try again.")
+            cleaned = [t.strip() for t in texts]
+            if any(not t or len(t) > 40 for t in cleaned):
+                raise ValueError("Each caption word must be 1 to 40 characters.")
+            words = [{**w, "text": t} for w, t in zip(words, cleaned)]
+        if style.script != caps["style"].get("script", "original"):   # Hindi letters <-> Hinglish
+            words = hinglish.convert_words(words, style.script)
+        m["text"]["captions"] = {"style": style.as_dict(), "words": words}
+    return _apply(job_id, clip_id, change, force={render.TEXT})
 
 
-def set_clip_text(job_id: str, clip_id: int, mode: str | None, headline: dict | None,
-                  approve: bool) -> dict:
-    """Choose what text a clip shows.
-
-    headline = {"text", "preset"?, "style"?}: saved as a DRAFT (nothing is drawn) until approve=True,
-               so the user always previews and approves a headline before it is burned in.
-    mode "none": export without any text.   mode "captions": back to captions, only if trustworthy.
-    """
-    folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
-    if mode not in (None, "captions", "none", "headline"):
-        raise ValueError("mode must be captions, headline or none")
-    if not base_path(out).exists():
-        raise ValueError("This clip was made before its text could be changed. Make new clips from this video.")
+def _plan_text(clip: dict, mode: str | None, headline: dict | None, approve: bool):
+    """Check a text change. Returns (new text state, mode to show, draft_only)."""
     state = dict(textmode.text_state(clip))
     state["headline"] = dict(state["headline"]) if state.get("headline") else None
 
@@ -150,9 +162,7 @@ def set_clip_text(job_id: str, clip_id: int, mode: str | None, headline: dict | 
                                                      {**old_style, **(headline.get("style") or {})}))
         state["headline"] = {"text": text, "style": style.as_dict(), "approved": False, "source": "user"}
         if mode is None and not approve:      # just a draft: nothing is drawn, the clip is not changed
-            clip["text"] = state
-            jobs.write_atomic(clips_file, json.dumps(data, ensure_ascii=False))
-            return clip
+            return state, None, True
         mode = mode or "headline"
 
     if mode == "headline" or (approve and mode is None):
@@ -160,75 +170,87 @@ def set_clip_text(job_id: str, clip_id: int, mode: str | None, headline: dict | 
             raise ValueError("Type a headline first.")
         if not approve:
             raise ValueError("Preview the headline and approve it before it is added to the video.")
-        text = state["headline"]["text"]
-        style = captionstyles.resolve_headline(state["headline"]["style"]["preset"], state["headline"]["style"])
         state.update(mode="headline")
         state["headline"]["approved"] = True
-
-        def draw(base, target):
-            apply_headline(base, text, style, target, folder)
-            clip["text"] = state
-            clip["title"] = text           # the user's own words now name the clip
-    elif mode == "none":
+        return state, "headline", False
+    if mode == "none":
         state.update(mode="none")
-
-        def draw(base, target):
-            apply_no_text(base, target)
-            clip["text"] = state
-    elif mode == "captions":
-        caps = clip.get("captions")
-        if textmode.is_untrusted(clip) or not caps:
+        return state, "none", False
+    if mode == "captions":
+        if textmode.is_untrusted(clip) or not clip.get("captions"):
             raise ValueError(textmode.CAPTIONS_UNAVAILABLE)
-        style = captionstyles.resolve(caps["style"]["preset"], {k: v for k, v in caps["style"].items() if k != "preset"})
         state.update(mode="captions")
+        return state, "captions", False
+    raise ValueError("Nothing to change.")
 
-        def draw(base, target):
-            apply_captions(base, caps["words"], style, target, folder)
-            clip["text"] = state
-    else:
-        raise ValueError("Nothing to change.")
-    return _redraw(job_id, clip_id, folder, clips_file, data, clip, out, draw)
+
+def set_clip_text(job_id: str, clip_id: int, mode: str | None, headline: dict | None,
+                  approve: bool) -> dict:
+    """Choose what text a clip shows.
+
+    headline = {"text", "preset"?, "style"?}: saved as a DRAFT (nothing is drawn) until approve=True,
+               so the user always previews and approves a headline before it is burned in.
+    mode "none": export without any text.   mode "captions": back to captions, only if trustworthy.
+    """
+    if mode not in (None, "captions", "none", "headline"):
+        raise ValueError("mode must be captions, headline or none")
+    folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
+    if not base_path(out).exists():
+        raise ValueError("This clip was made before its text could be changed. Make new clips from this video.")
+    state, shown, draft = _plan_text(clip, mode, headline, approve)
+    if draft:
+        clip["text"] = state
+        jobs.write_atomic(clips_file, json.dumps(data, ensure_ascii=False))
+        return clip
+
+    def change(clip, m):
+        clip["text"] = state
+        m["text"]["mode"] = shown
+        m["text"]["captions"] = m["text"]["headline"] = None
+        if shown == "headline":
+            m["text"]["headline"] = {"text": state["headline"]["text"], "style": state["headline"]["style"]}
+            clip["title"] = state["headline"]["text"]      # the user's own words now name the clip
+        elif shown == "captions":
+            caps = clip["captions"]
+            m["text"]["captions"] = {"style": copy.deepcopy(caps["style"]), "words": copy.deepcopy(caps["words"])}
+    return _apply(job_id, clip_id, change, force={render.TEXT})
 
 
 def set_clip_effects(job_id: str, clip_id: int, settings: dict) -> dict:
     """Change the zoom and pan of one finished clip. The picture is made again from the source
-    video, then the same text (captions or headline) and music go back on top. A new version of
-    the clip, so its checklist must be confirmed again.
+    video, then the same text (captions or headline) and music go back on top."""
+    new_effects = effects.normalize(settings)      # ValueError with a readable message if invalid
 
-    Everything the renderer needs is read from the clip's editing manifest (see manifest.py)."""
-    folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
-    new = effects.normalize(settings)          # ValueError with a readable message if invalid
-    if not (folder / "source.mp4").exists():
-        raise ValueError("The original video for this clip is no longer on this computer, so its "
-                         "picture cannot be remade.")
-    m = manifest.from_clip(clip)
-    m["effects"] = new
-    m = manifest.validate(m)
-    manifest.check_renderable(m)               # refuses clips whose captions are burned in
-    args = manifest.render_args(m)
-    clip["effects"] = new
-
-    def draw(base, target):
-        # 1) the picture again, with the new zoom/pan (no text yet)
-        clip["framing"] = render_base(folder / "source.mp4", base=base, **args)
-        # 2) the same text as before, drawn over the new picture
-        _text_drawer(manifest.text_drawer_spec(m), folder)(base, target)
-
-    return _redraw(job_id, clip_id, folder, clips_file, data, clip, out, draw)
+    def change(clip, m):
+        m["effects"] = new_effects
+    return _apply(job_id, clip_id, change, force={render.PICTURE})
 
 
-def _text_drawer(spec: dict, folder):
-    """A function(base, target) that puts the manifest's text on the picture. Mirrors what
-    export does for each text mode."""
-    if spec["kind"] == "captions":
-        style = captionstyles.resolve(spec["style"].get("preset"),
-                                      {k: v for k, v in spec["style"].items() if k != "preset"})
-        return lambda base, target: apply_captions(base, spec["words"], style, target, folder)
-    if spec["kind"] == "headline":
-        style = captionstyles.resolve_headline(spec["style"].get("preset"), spec["style"])
-        return lambda base, target: apply_headline(base, spec["text"], style, target, folder)
-    # "none" or "pending": the picture goes out without text
-    return lambda base, target: apply_no_text(base, target)
+def apply_manifest(job_id: str, clip_id: int, document: dict) -> dict:
+    """The editor's single 'Apply': take a whole manifest, check it, and make the clip from it.
+
+    Text is not changed here: captions and headlines have their own tools, which keep the rule
+    that the user previews and approves text and that untrusted speech is never turned into captions."""
+    new = manifest.validate(document)
+
+    def change(clip, m):
+        if new["text"] != m["text"]:
+            raise ValueError("Change the text with the captions and headline tools, not here.")
+        wanted = new["audio"]["music"]
+        if wanted and music.get_track(wanted["track_id"]) is None:
+            raise KeyError("Unknown music track")
+        before, after = m["clip"], new["clip"]
+        if after != before:
+            tol = 1e-6
+            if after["start"] < before["start"] - tol or after["end"] > before["end"] + tol:
+                raise ValueError("A video can only be shortened for now: choose a start and end "
+                                 "inside its current length.")
+            if m["text"]["captions"] is not None:      # captions follow the new start
+                m["text"]["captions"] = manifest.trim_captions(
+                    m["text"]["captions"], after["start"] - before["start"], after["end"] - after["start"])
+        for key in ("clip", "framing", "effects", "fades", "transitions", "audio"):
+            m[key] = copy.deepcopy(new[key])
+    return _apply(job_id, clip_id, change)
 
 
 def run_pipeline(job_id: str, language: str | None, settings: dict, url: str | None = None) -> None:
