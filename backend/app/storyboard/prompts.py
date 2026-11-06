@@ -1,7 +1,7 @@
 """The prompt for each scene, written for an external video generator.
 
 These are composed from fixed wording plus the user's own words (product, style). They are plain
-text: ClipGenie does not know what any particular generator will do with them, and says so.
+text: CocoGenie does not know what any particular generator will do with them, and says so.
 """
 from app.storyboard.shots import ASPECTS, STYLE_INFO
 

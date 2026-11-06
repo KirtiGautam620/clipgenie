@@ -1,7 +1,7 @@
 """Copyright-safe workflow: who owns the source, what music licence applies, and the
 checklist that must be completed before a clip can be downloaded.
 
-ClipGenie records what YOU declare. It cannot check ownership, and it cannot promise that
+CocoGenie records what YOU declare. It cannot check ownership, and it cannot promise that
 a platform's copyright system (like YouTube's Content ID) will not flag a clip.
 """
 import json
@@ -20,7 +20,7 @@ DOWNLOAD_OK = ("own", "permission", "licensed")
 
 DISCLAIMER = (
     "Short clips are NOT automatically copyright-free. Cutting a video, adding captions or "
-    "music, or changing its shape does not remove the original owner's rights. ClipGenie "
+    "music, or changing its shape does not remove the original owner's rights. CocoGenie "
     "cannot check ownership and cannot promise that YouTube's Content ID or any other system "
     "will not flag a clip."
 )
@@ -96,7 +96,7 @@ def required_items(source: dict, clip: dict) -> list[dict]:
                       "credits text to my video description where required."})
     items.append({"id": "no_guarantee", "text":
                   "I understand short clips are not automatically copyright-free and that "
-                  "ClipGenie cannot promise a platform's copyright checks will not flag them."})
+                  "CocoGenie cannot promise a platform's copyright checks will not flag them."})
     items.append({"id": "reviewed", "text": "I watched the final clip and I am happy to publish it."})
     return items
 

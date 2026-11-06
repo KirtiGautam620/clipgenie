@@ -26,9 +26,9 @@ def normalize_image(source: Path | str | bytes, dest: Path | str) -> dict:
         img = Image.open(BytesIO(source) if isinstance(source, (bytes, bytearray)) else source)
         fmt = img.format
     except (UnidentifiedImageError, OSError, ValueError):
-        raise ValueError("This file is not a photo ClipGenie can read. Please use a JPG, PNG or WebP.") from None
+        raise ValueError("This file is not a photo CocoGenie can read. Please use a JPG, PNG or WebP.") from None
     if fmt not in SUPPORTED:
-        raise ValueError("This file is not a photo ClipGenie can read. Please use a JPG, PNG or WebP.")
+        raise ValueError("This file is not a photo CocoGenie can read. Please use a JPG, PNG or WebP.")
     width, height = img.size                      # from the header: nothing has been decoded yet
     if width * height > MAX_PIXELS:
         raise ValueError(f"This photo is too large ({width} x {height}). Please use one under "

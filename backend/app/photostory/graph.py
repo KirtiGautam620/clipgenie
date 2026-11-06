@@ -19,7 +19,7 @@ from app.photostory.timing import FPS
 W, H = 1080, 1920
 UPSCALE = 2                 # moving scenes are drawn from a 2x picture, so slow moves do not step
 PREVIEW_SCALE = 0.25        # a preview is drawn a quarter of the size: quick, and light on memory
-TO_STANDARD_RANGE = "scale=out_range=tv"    # the normal video colour range, as the rest of ClipGenie makes
+TO_STANDARD_RANGE = "scale=out_range=tv"    # the normal video colour range, as the rest of CocoGenie makes
 XFADE = {"fade": "fade", "slide_left": "slideleft", "slide_right": "slideright", "wipe_left": "wipeleft"}
 
 

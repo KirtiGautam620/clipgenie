@@ -1,6 +1,6 @@
 """Editing styles and the three edit modes: one engine, different choices. Auto Edit and AI + Manual
 use the Natural style (what Auto Edit always did); Custom Style uses the one you pick; any video can
-be restyled afterwards or taken back to ClipGenie's own edit."""
+be restyled afterwards or taken back to CocoGenie's own edit."""
 import copy
 import json
 import shutil
@@ -131,7 +131,7 @@ def test_custom_style_changes_the_edit(folders, monkeypatch):
     assert clip["text"]["hook"]["style"]["preset"] == "banner"               # the style's hook look
     saved = json.loads((folder / "plan.json").read_text())
     assert saved["options"]["style_id"] == "punchy" and saved["options"]["edit_mode"] == "custom"
-    base, how = manifest.load_baseline(folder, 1)                            # ClipGenie's version is kept
+    base, how = manifest.load_baseline(folder, 1)                            # CocoGenie's version is kept
     assert how["style_id"] == "punchy" and base["effects"]["zoom"] == 1.12
 
 
@@ -210,7 +210,7 @@ def test_an_unknown_style_is_a_404_and_changes_nothing(client, folders):
     assert (folder / "clips.json").read_text() == before
 
 
-# ---------------------------------------------------------------- going back to ClipGenie's own edit
+# ---------------------------------------------------------------- going back to CocoGenie's own edit
 
 def made_with_baseline(work):
     job, folder = make_job(work, clip_entry())
@@ -229,7 +229,7 @@ def test_reset_brings_back_the_original_picture_exactly(client, folders):
     assert frames(folder / "clip_1.mp4") != original
     r = client.post(f"/api/jobs/{job}/clips/1/reset")
     assert r.status_code == 200, r.text
-    assert frames(folder / "clip_1.mp4") == original                         # as ClipGenie first made it
+    assert frames(folder / "clip_1.mp4") == original                         # as CocoGenie first made it
     assert r.json()["edit"]["mode"] == "assist" and r.json()["effects"] == {"zoom": 1.0, "pan": "none"}
 
 

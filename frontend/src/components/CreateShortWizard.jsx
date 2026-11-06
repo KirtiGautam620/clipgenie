@@ -11,9 +11,9 @@ const RIGHTS_OPTIONS = [
 ];
 
 const EDIT_MODES = [
-  { id: 'auto', title: 'Auto Edit', text: 'ClipGenie makes every editing decision and finishes the videos.' },
-  { id: 'assist', title: 'AI + Manual', text: 'ClipGenie edits first, then opens the editor so you can change any decision.' },
-  { id: 'custom', title: 'Custom Style', text: 'You choose an editing style and ClipGenie applies it to every video.' },
+  { id: 'auto', title: 'Auto Edit', text: 'CocoGenie makes every editing decision and finishes the videos.' },
+  { id: 'assist', title: 'AI + Manual', text: 'CocoGenie edits first, then opens the editor so you can change any decision.' },
+  { id: 'custom', title: 'Custom Style', text: 'You choose an editing style and CocoGenie applies it to every video.' },
 ];
 
 // How the picture is framed. These are the two real choices the backend understands.
@@ -96,7 +96,7 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSou
           <div>
             <h1 className="cg-heading-lg">Create a new video</h1>
             <p className="cg-text-secondary cg-text-sm" style={{ marginTop: 4 }}>
-              Choose where your video comes from and how it should be framed. ClipGenie does the rest.
+              Choose where your video comes from and how it should be framed. CocoGenie does the rest.
             </p>
           </div>
           {onCancel && (
@@ -221,11 +221,11 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSou
             <p className="cg-text-xs cg-text-muted">Output is vertical 9:16, made for Shorts, Reels and TikTok.</p>
           </section>
 
-          {/* ── Auto Edit: what ClipGenie does for you ──────────────────── */}
+          {/* ── Auto Edit: what CocoGenie does for you ──────────────────── */}
           <section className="cg-wizard-card">
             <h2 className="cg-wizard-step-title">
               <span className="cg-wizard-step-num">3</span>
-              <span>How should ClipGenie edit?</span>
+              <span>How should CocoGenie edit?</span>
             </h2>
             <div className="cg-mode-grid" role="radiogroup" aria-label="Editing mode">
               {EDIT_MODES.map((m) => (

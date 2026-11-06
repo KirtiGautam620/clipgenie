@@ -131,7 +131,7 @@ def validate(manifest: dict) -> dict:
         raise ValueError("The manifest must be an object.")
     version = manifest.get("version")
     if version not in ACCEPTED_VERSIONS:
-        raise ValueError(f"Unsupported manifest version {version!r}; this ClipGenie reads versions "
+        raise ValueError(f"Unsupported manifest version {version!r}; this CocoGenie reads versions "
                          f"{', '.join(map(str, ACCEPTED_VERSIONS))}.")
 
     span = _section(manifest, "clip")
@@ -361,7 +361,7 @@ def baseline_path(folder: Path, clip_id: int) -> Path:
 
 
 def save_baseline(folder: Path, clip_id: int, manifest: dict, edit: dict | None = None) -> None:
-    """Keep the manifest ClipGenie made for a new clip, untouched by later edits, so the user can
+    """Keep the manifest CocoGenie made for a new clip, untouched by later edits, so the user can
     always go back to it. `edit` = how it was made (mode and style), saved beside it."""
     path = baseline_path(folder, clip_id)
     tmp = path.with_name(path.name + ".tmp")

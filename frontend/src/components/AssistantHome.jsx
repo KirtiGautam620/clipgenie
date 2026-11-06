@@ -5,7 +5,7 @@ import { CopyEditor, ThumbnailMaker } from './ContentTools.jsx';
 import { Sprig } from './Botanicals.jsx';
 import './AssistantHome.css';
 
-// Home: the creator assistant. You say what you want; it picks one of ClipGenie's real tools, shows a
+// Home: the creator assistant. You say what you want; it picks one of CocoGenie's real tools, shows a
 // plan, and runs it with live progress. It never writes made-up answers: replies are either a tool's
 // real result or a plain sentence about what it is doing (or why something isn't available yet).
 
@@ -354,7 +354,7 @@ export default function AssistantHome({ health, onOpenProject }) {
     <main className="cg-main cg-as-page">
       <section className="cg-as-hero">
         <div className="cg-as-hero-text">
-          <p className="cg-dash-eyebrow">ClipGenie assistant</p>
+          <p className="cg-dash-eyebrow">CocoGenie assistant</p>
           <h1 className="cg-heading-xl">What would you like to create today?</h1>
         </div>
         <div className="cg-as-hero-art" aria-hidden="true"><Sprig width={110} tone="leaf" /></div>
@@ -362,7 +362,7 @@ export default function AssistantHome({ health, onOpenProject }) {
 
       {serverDown && (
         <div className="cg-alert cg-alert--error" role="alert">
-          <span>ClipGenie can't reach its server. Start it with <code className="cg-code">./run.sh</code> and refresh this page.</span>
+          <span>CocoGenie can't reach its server. Start it with <code className="cg-code">./run.sh</code> and refresh this page.</span>
         </div>
       )}
 

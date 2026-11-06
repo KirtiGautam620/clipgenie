@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="ClipGenie", lifespan=lifespan)
+app = FastAPI(title="CocoGenie", lifespan=lifespan)
 app.include_router(storyboard_router)       # the optional Storyboard tool: its own routes, nothing shared
 app.include_router(assistant_api)           # the creator assistant (app/assistant): its own routes
 app.include_router(content_api)             # publishing text and thumbnails of a clip (app/content)
@@ -271,7 +271,7 @@ def download_clip(job_id: str, clip_id: int):
     if not rights.is_confirmed(job_id, clip):
         raise HTTPException(403, "Complete the copyright checklist for this clip first.")
     return FileResponse(_video_path(job_id, clip_id), media_type="video/mp4",
-                        filename=f"clipgenie_{job_id}_{clip_id}.mp4")
+                        filename=f"cocogenie_{job_id}_{clip_id}.mp4")
 
 
 @app.get("/api/jobs/{job_id}/clips/{clip_id}/report")
@@ -279,7 +279,7 @@ def clip_report(job_id: str, clip_id: int):
     """A record of the source, music licence and confirmations, to keep with your files."""
     report = rights.report(job_id, _clip(job_id, clip_id))
     return JSONResponse(report, headers={
-        "Content-Disposition": f'attachment; filename="clipgenie_{job_id}_{clip_id}_rights.json"'})
+        "Content-Disposition": f'attachment; filename="cocogenie_{job_id}_{clip_id}_rights.json"'})
 
 
 class MusicChoice(BaseModel):
@@ -449,7 +449,7 @@ def change_clip_style(job_id: str, clip_id: int, body: StyleChoice):
 
 @app.post("/api/jobs/{job_id}/clips/{clip_id}/reset")
 def reset_clip(job_id: str, clip_id: int):
-    """Go back to the edit ClipGenie first made for this video."""
+    """Go back to the edit CocoGenie first made for this video."""
     _clips(job_id)
     try:
         return rights.enrich(job_id, reset_to_ai(job_id, clip_id))

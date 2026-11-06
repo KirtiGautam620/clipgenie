@@ -23,7 +23,7 @@ from pathlib import Path
 
 HINDI_PROMPT = "यह हिंदी में एक सामान्य बातचीत है।"
 
-# Named bundles of decoding settings. "default" = what ClipGenie did before this benchmark.
+# Named bundles of decoding settings. "default" = what CocoGenie did before this benchmark.
 OPTION_SETS = {
     "default": {},
     "noctx": {"condition_on_previous_text": False},

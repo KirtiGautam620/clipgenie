@@ -126,13 +126,13 @@ def draft(job_id: str, clip_id: int, wait: bool = False) -> dict:
     background): wait for it. Raises Untrusted, ValueError, LLMError or pipeline.Busy."""
     _, _, _, clip, _ = pipeline._load_clip(job_id, clip_id)
     if not can_draft(clip):
-        raise Untrusted("The speech in this clip couldn't be trusted, so ClipGenie won't write about it. "
+        raise Untrusted("The speech in this clip couldn't be trusted, so CocoGenie won't write about it. "
                         "Write your own title instead.")
     text = clip_text(job_id, clip)
     if len(text) < 20:
         raise ValueError("There is too little speech in this clip to write about.")
     if not pipeline.heavy_job_lock.acquire(blocking=wait):
-        raise pipeline.Busy("ClipGenie is busy making a video. Try again in a minute.")
+        raise pipeline.Busy("CocoGenie is busy making a video. Try again in a minute.")
     try:
         try:
             answer = ask_json(COPY_SYSTEM, text[:3000], timeout=180)
@@ -148,7 +148,7 @@ def save_user(job_id: str, clip_id: int, body: dict) -> dict:
     """The user's own (or edited) text: saved as approved. The video itself is not changed."""
     copy = {**check_user_copy(body), "source": "user", "approved": True}
     if not pipeline.heavy_job_lock.acquire(blocking=False):
-        raise pipeline.Busy("ClipGenie is busy making a video. Try again in a minute.")
+        raise pipeline.Busy("CocoGenie is busy making a video. Try again in a minute.")
     try:
         return _save(job_id, clip_id, copy)
     finally:

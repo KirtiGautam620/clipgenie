@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "clipgenie-backend",
+      "name": "cocogenie-backend",
       "runtimeExecutable": "/Users/kirtig/clipgenie/backend/.venv/bin/uvicorn",
       "runtimeArgs": [
         "app.main:app",
@@ -14,7 +14,7 @@
       "port": 8000
     },
     {
-      "name": "clipgenie-web",
+      "name": "cocogenie-web",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "--prefix",

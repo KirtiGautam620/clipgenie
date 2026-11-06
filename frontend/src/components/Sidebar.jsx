@@ -25,7 +25,7 @@ export default function Sidebar({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigate('home'); }}>
         <LogoMark size={30} />
         <div className="cg-sidebar-logo-text">
-          <span className="cg-sidebar-brand">Clip<span className="cg-sidebar-brand-accent">Genie</span></span>
+          <span className="cg-sidebar-brand">Coco<span className="cg-sidebar-brand-accent">Genie</span></span>
         </div>
       </div>
 

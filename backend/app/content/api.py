@@ -102,7 +102,7 @@ def find_frames(job_id: str, clip_id: int):
     """Look through the clip for the best frames (sharp, well lit, a face). Takes a few seconds."""
     clip = _clip(job_id, clip_id)
     if not pipeline.heavy_job_lock.acquire(blocking=False):
-        raise HTTPException(409, "ClipGenie is busy making a video. Try again in a minute.")
+        raise HTTPException(409, "CocoGenie is busy making a video. Try again in a minute.")
     try:
         thumbnails.candidates(job_id, clip_id, clip.get("version", 0))
     except ValueError as e:
@@ -135,7 +135,7 @@ def make_thumbnails(job_id: str, clip_id: int, body: ThumbnailIn):
     if text and textmode.is_untrusted(clip) and text == (clip.get("withheld") or {}).get("title"):
         raise HTTPException(400, "That text came from speech that couldn't be trusted. Write your own.")
     if not pipeline.heavy_job_lock.acquire(blocking=False):
-        raise HTTPException(409, "ClipGenie is busy making a video. Try again in a minute.")
+        raise HTTPException(409, "CocoGenie is busy making a video. Try again in a minute.")
     try:
         m = manifest.current(jobs.job_dir(job_id), clip)
         thumbnails.compose(job_id, clip_id, body.frame, text, body.preset, m, clip.get("version", 0))
@@ -172,4 +172,4 @@ def thumbnail_download(job_id: str, clip_id: int, size: str):
     if not rights.is_confirmed(job_id, clip):
         raise HTTPException(403, "Complete the copyright checklist for this clip first.")
     return FileResponse(_thumb_file(job_id, clip_id, size), media_type="image/png",
-                        filename=f"clipgenie_{job_id}_{clip_id}_thumbnail_{size}.png")
+                        filename=f"cocogenie_{job_id}_{clip_id}_thumbnail_{size}.png")

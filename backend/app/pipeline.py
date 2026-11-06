@@ -83,7 +83,7 @@ def _apply(job_id: str, clip_id: int, change, force=frozenset()) -> dict:
       3. renders only the stages that differ (render.py, written safely),  4. saves the result.
     A real change is a new version of the clip, so its copyright checklist must be confirmed again."""
     if not heavy_job_lock.acquire(blocking=False):
-        raise Busy("ClipGenie is busy processing a video. Try again in a minute.")
+        raise Busy("CocoGenie is busy processing a video. Try again in a minute.")
     try:
         folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
         old = manifest.current(folder, clip)
@@ -319,12 +319,12 @@ def apply_style(job_id: str, clip_id: int, style_id: str) -> dict:
 
 
 def reset_to_ai(job_id: str, clip_id: int) -> dict:
-    """Go back to the edit ClipGenie first made: cuts, trim, motion, fades, music and the caption
+    """Go back to the edit CocoGenie first made: cuts, trim, motion, fades, music and the caption
     words. What you chose for the text (your caption look, a headline, a hook) stays."""
     folder = jobs.job_dir(job_id)
     saved = manifest.load_baseline(folder, clip_id)
     if saved is None:
-        raise ValueError("ClipGenie did not keep its original edit for this video (it was made before that "
+        raise ValueError("CocoGenie did not keep its original edit for this video (it was made before that "
                          "was saved), so there is nothing to go back to.")
     ai, how = saved
 
@@ -498,7 +498,7 @@ def _make_clips(job_id: str, settings: dict) -> None:
             result = render.create(folder, n, m)
         _sync_clip(entry, m, m, result)
         manifest.save(folder, n, m, reason="created")
-        manifest.save_baseline(folder, n, m, edit=entry["edit"])     # ClipGenie's own version, to go back to
+        manifest.save_baseline(folder, n, m, edit=entry["edit"])     # CocoGenie's own version, to go back to
         entry["checks"] = checks.safe_check(folder, n, m)
         done.append(entry)
 

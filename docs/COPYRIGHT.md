@@ -1,9 +1,9 @@
-# Copyright and ClipGenie
+# Copyright and CocoGenie
 
-ClipGenie is built to help you make **original, publishable** clips from videos you have the right to
+CocoGenie is built to help you make **original, publishable** clips from videos you have the right to
 use. It is a tool, not a legal safeguard.
 
-## What ClipGenie does NOT do
+## What CocoGenie does NOT do
 
 - It does **not** make clips copyright-free. A short clip of someone else's video is still their work.
   Cutting, captions, music, speed changes and cropping do not change who owns the original.
@@ -12,7 +12,7 @@ use. It is a tool, not a legal safeguard.
   will. It does not remove watermarks or logos.
 - It cannot promise that a platform will not flag, claim or remove a clip.
 
-## What ClipGenie does to help
+## What CocoGenie does to help
 
 | Step | What happens |
 |---|---|

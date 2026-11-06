@@ -12,10 +12,10 @@ export default function Header({ health, musicCount, onLogoClick, currentScreen 
   return (
     <header className="cg-header">
       {/* Logo */}
-      <button className="cg-header-logo" onClick={onLogoClick} aria-label="ClipGenie home">
+      <button className="cg-header-logo" onClick={onLogoClick} aria-label="CocoGenie home">
         <LogoMark size={22} />
         <span className="cg-header-brand">
-          Clip<span className="cg-header-brand-accent">Genie</span>
+          Coco<span className="cg-header-brand-accent">Genie</span>
         </span>
       </button>
 
@@ -31,7 +31,7 @@ export default function Header({ health, musicCount, onLogoClick, currentScreen 
         )}
 
         {serverDown && (
-          <span className="cg-pill cg-pill--error" title="Cannot reach the ClipGenie server. Is it running?">
+          <span className="cg-pill cg-pill--error" title="Cannot reach the CocoGenie server. Is it running?">
             <span className="cg-pill-dot" />
             Server offline
           </span>

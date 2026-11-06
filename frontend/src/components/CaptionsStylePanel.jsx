@@ -304,7 +304,7 @@ function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
   );
 }
 
-// Captions are only shown for speech ClipGenie could trust. Otherwise the user chooses a headline
+// Captions are only shown for speech CocoGenie could trust. Otherwise the user chooses a headline
 // of their own, or no text (see TextChoicePanel).
 export default function CaptionsStylePanel(props) {
   const { clip } = props;

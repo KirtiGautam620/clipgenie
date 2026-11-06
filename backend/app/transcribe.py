@@ -122,11 +122,11 @@ def transcribe(video: Path, work: Path, language: str | None = None) -> dict:
 
     good = [s for s in result["segments"] if not _is_garbage(s)]
     if not good or not "".join(s["text"] for s in good).strip():
-        raise NoSpeechError("ClipGenie could not find clear speech in this video. It works best "
+        raise NoSpeechError("CocoGenie could not find clear speech in this video. It works best "
                             "with videos where someone talks. If there is speech, try choosing "
                             "the language yourself.")
     if language is None and detected not in SUPPORTED:
-        raise NoSpeechError(f"The speech sounds like '{detected}', but ClipGenie supports English "
+        raise NoSpeechError(f"The speech sounds like '{detected}', but CocoGenie supports English "
                             "and Hindi. If it is English or Hindi, choose the language yourself.")
 
     # Keep Whisper's confidence figures: they are invisible to users but let quality.py judge

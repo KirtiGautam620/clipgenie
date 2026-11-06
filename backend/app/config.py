@@ -1,6 +1,6 @@
 from pathlib import Path
 
-# Project root = the clipgenie folder
+# Project root = the cocogenie folder
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 WORK_DIR = DATA_DIR / "work"  # one sub-folder per job

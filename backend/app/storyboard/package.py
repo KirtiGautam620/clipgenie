@@ -14,7 +14,7 @@ FRAME_LONG_SIDE = 1280
 def _markdown(sb: model.Storyboard, geo: dict) -> str:
     lines = [
         f"# {sb.title}", "",
-        "Made with ClipGenie AI Storyboard. This is a **shot plan built from templates and your prompt**, with "
+        "Made with CocoGenie AI Storyboard. This is a **shot plan built from templates and your prompt**, with "
         "reference frames cropped from your own photo. It is not an AI-generated video, and the reference frames "
         "show framing only, not new camera angles.", "",
         f"- Photo: `photo.jpg` ({sb.photo['width']} x {sb.photo['height']})",
@@ -22,7 +22,7 @@ def _markdown(sb: model.Storyboard, geo: dict) -> str:
         f"- Product: {sb.product or '(not described)'}", f"- Your prompt: {sb.prompt or '(none)'}", "",
         "## How to use this", "",
         "1. Open the video generator you want to use (for example Google Flow). Check that tool's own limits, "
-        "pricing and terms: ClipGenie cannot promise what any tool will make from these prompts.",
+        "pricing and terms: CocoGenie cannot promise what any tool will make from these prompts.",
         "2. Upload `photo.jpg` as the reference image for every scene.",
         "3. Paste each scene's prompt (also all together in `prompts.txt`). The frames in `reference/` show the "
         "framing planned for each scene and can be used as extra guidance if the tool accepts them.", "",

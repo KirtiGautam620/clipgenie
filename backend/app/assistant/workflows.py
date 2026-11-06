@@ -61,7 +61,7 @@ def plan_make_clips(conversation_id: str, args: dict, source: dict) -> dict:
                    "style_id": style_id},
           "needs_rights": source["kind"] in ("upload", "url"),
           "warning": "",
-          "note": ("ClipGenie makes a new project from it, so the videos you already have stay as they are."
+          "note": ("CocoGenie makes a new project from it, so the videos you already have stay as they are."
                    if source["kind"] == "project" else ""),
           "steps": _steps(MAKE_STEPS, skipped=("transcribe",) if source["kind"] == "project" else ()),
           "result": None, "error": None, "job_id": source.get("job_id")}
@@ -231,7 +231,7 @@ def _run_ideas(wf_id: str) -> None:
             raise ValueError("I couldn't come up with ideas I could tie to what you said in this video.")
         wf.update(status="done", finished_at=_now(), result={
             "ideas": found, "project": wf["source"],
-            "note": "Based only on what you said in this video. ClipGenie doesn't use YouTube search or trend data yet."})
+            "note": "Based only on what you said in this video. CocoGenie doesn't use YouTube search or trend data yet."})
     except LLMError:
         wf.update(status="error", error="The local AI model isn't running, so I can't think of ideas right now. "
                                         "Start it (see Settings) and ask again.")
@@ -278,7 +278,7 @@ def _run_copy(wf_id: str) -> None:
         skipped = len(clips) - len(trusted)
         chosen = trusted[:COPY_MAX_CLIPS]
         if not chosen:
-            raise ValueError("None of these clips has speech ClipGenie could trust, so it won't write about them. "
+            raise ValueError("None of these clips has speech CocoGenie could trust, so it won't write about them. "
                              "You can write your own titles in each clip's Export window.")
         _set_step(wf, "read", "done", f"{len(chosen)} clip{'s' if len(chosen) != 1 else ''}"
                   + (f", {skipped} skipped (speech not trusted)" if skipped else ""))
@@ -375,7 +375,7 @@ def mark_interrupted() -> int:
             if wf["tool"] == "make_clips" and wf.get("job_id"):
                 threading.Thread(target=_follow, args=(wf["id"],), daemon=True).start()   # report how it ended
                 continue
-            wf.update(status="error", error="This was interrupted because ClipGenie restarted. Please ask again.")
+            wf.update(status="error", error="This was interrupted because CocoGenie restarted. Please ask again.")
             _save(wf)
             count += 1
     return count

@@ -1,10 +1,10 @@
-// Original ClipGenie botanical artwork: a logo mark and a few leaf sprigs.
+// Original CocoGenie botanical artwork: a logo mark and a few leaf sprigs.
 // Drawn here as plain SVG (no image files, no packages). They use the colour tokens, so they follow
 // the theme. They are decoration only, so every one is hidden from screen readers.
 
 const LEAF = 'M0 0 C 9 -9 24 -9 34 0 C 24 9 9 9 0 0 Z';
 
-/** The ClipGenie mark: a leaf with a play triangle in it. */
+/** The CocoGenie mark: a leaf with a play triangle in it. */
 export function LogoMark({ size = 28 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">

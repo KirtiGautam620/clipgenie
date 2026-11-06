@@ -59,12 +59,12 @@ export default function Dashboard({
       {/* Welcome */}
       <section className="cg-dash-hero">
         <div className="cg-dash-hero-text">
-          <p className="cg-dash-eyebrow">Welcome to ClipGenie</p>
+          <p className="cg-dash-eyebrow">Welcome to CocoGenie</p>
           <h1 className="cg-heading-xl">
             Turn long videos into <em>Shorts</em> worth watching.
           </h1>
           <p className="cg-dash-tagline">
-            ClipGenie finds the best moments in your videos, frames the speaker, and adds captions and music.
+            CocoGenie finds the best moments in your videos, frames the speaker, and adds captions and music.
           </p>
           <button className="cg-btn cg-btn--primary cg-btn--lg" onClick={() => onImport('file')}
             disabled={serverDown}>
@@ -81,7 +81,7 @@ export default function Dashboard({
       {serverDown && (
         <div className="cg-alert cg-alert--error" role="alert">
           <span>
-            ClipGenie can't reach its server. Start it with&nbsp;
+            CocoGenie can't reach its server. Start it with&nbsp;
             <code className="cg-code">./run.sh</code> and refresh this page.
           </span>
         </div>

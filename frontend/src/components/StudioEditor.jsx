@@ -265,7 +265,7 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
 }
 
 // The hook: a title card over the first seconds, shown together with the captions. A suggestion from
-// ClipGenie is only a draft: nothing goes on the video until you press "Add to video".
+// CocoGenie is only a draft: nothing goes on the video until you press "Add to video".
 function HookSection({ jobId, clip, onApplied }) {
   const hook = clip.text?.hook;
   const [text, setText] = useState(hook?.text || '');
@@ -302,7 +302,7 @@ function HookSection({ jobId, clip, onApplied }) {
       <h4 className="cg-panel-subhead">Hook line</h4>
       {suggested && (
         <p className="cg-text-xs cg-text-muted">
-          ClipGenie suggests this hook from what is said. It is not on your video yet: edit it if you like, then add it.
+          CocoGenie suggests this hook from what is said. It is not on your video yet: edit it if you like, then add it.
         </p>
       )}
       {!hook && (
@@ -437,7 +437,7 @@ export default function StudioEditor({
                   </ul>
                 )}
                 <p className="cg-text-xs cg-text-muted">
-                  ClipGenie keeps the transcript private. It only shows words it can trust, as
+                  CocoGenie keeps the transcript private. It only shows words it can trust, as
                   captions, or a headline you write and approve.
                 </p>
                 <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={() => setLeftTab('captions')}>

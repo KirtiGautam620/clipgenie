@@ -7,7 +7,7 @@ const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStar
 
 const MODE_LABELS = { auto: 'Auto Edit', assist: 'AI + Manual', custom: 'Custom Style' };
 
-// "AI edit": what ClipGenie decided for this video, and a way to change or undo each decision.
+// "AI edit": what CocoGenie decided for this video, and a way to change or undo each decision.
 // Nothing here is a separate editor: every button changes the video's manifest on the server and the
 // server remakes only what changed.
 export default function EditDecisionsPanel({ jobId, clip, man, onApplied, onOpenText }) {
@@ -81,7 +81,7 @@ export default function EditDecisionsPanel({ jobId, clip, man, onApplied, onOpen
   }
 
   function reset() {
-    if (!window.confirm("Go back to ClipGenie's own edit of this video? Your changes to the cuts, trim, motion, fades, music and caption words are undone. Your caption look and any headline or hook stay.")) return;
+    if (!window.confirm("Go back to CocoGenie's own edit of this video? Your changes to the cuts, trim, motion, fades, music and caption words are undone. Your caption look and any headline or hook stay.")) return;
     call('reset', `/api/jobs/${jobId}/clips/${clip.id}/reset`, { method: 'POST' }, onApplied);
   }
 
@@ -92,7 +92,7 @@ export default function EditDecisionsPanel({ jobId, clip, man, onApplied, onOpen
         {edit.mode && <span className="cg-badge cg-badge--muted">{MODE_LABELS[edit.mode] || edit.mode}</span>}
       </div>
       <p className="cg-text-xs cg-text-muted">
-        What ClipGenie decided for this video. Change any of it, or leave it as it is: editing by hand is optional.
+        What CocoGenie decided for this video. Change any of it, or leave it as it is: editing by hand is optional.
         {edit.style_name ? ` Edited in the “${edit.style_name}” style.` : ''}
       </p>
 
@@ -157,7 +157,7 @@ export default function EditDecisionsPanel({ jobId, clip, man, onApplied, onOpen
 
       <h4 className="cg-panel-subhead">Start over</h4>
       <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={!!busy} onClick={reset}>
-        {busy === 'reset' ? 'Going back…' : "Go back to ClipGenie's edit"}
+        {busy === 'reset' ? 'Going back…' : "Go back to CocoGenie's edit"}
       </button>
 
       {note && <p className="cg-text-xs cg-text-muted">{note}</p>}

@@ -113,8 +113,8 @@ export default function TextChoicePanel({ jobId, clip, onApplied, canUseCaptions
         <div className="cg-text-status" role="note">
           <p className="cg-text-status-title">
             {unusable
-              ? "ClipGenie couldn't make out the speech in this clip."
-              : "ClipGenie couldn't trust the speech in this clip."}
+              ? "CocoGenie couldn't make out the speech in this clip."
+              : "CocoGenie couldn't trust the speech in this clip."}
           </p>
           <p className="cg-text-xs cg-text-muted">
             It won't show words it isn't sure about, so this clip has no captions.
@@ -150,7 +150,7 @@ export default function TextChoicePanel({ jobId, clip, onApplied, canUseCaptions
           onChange={(e) => setText(e.target.value)}
         />
         <p className="cg-text-xs cg-text-muted">
-          Type your own words ({text.length}/{options.max_chars}). ClipGenie doesn't write headlines
+          Type your own words ({text.length}/{options.max_chars}). CocoGenie doesn't write headlines
           from speech it can't trust.
         </p>
       </div>

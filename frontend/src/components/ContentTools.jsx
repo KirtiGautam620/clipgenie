@@ -148,7 +148,7 @@ export function ThumbnailMaker({ jobId, clipId, confirmed }) {
     <div className="cg-ct">
       {view.frames.length === 0 ? (
         <div className="cg-ct-empty">
-          <p className="cg-text-sm">ClipGenie looks through this clip for its sharpest, best-lit frames, with a face if there is one.</p>
+          <p className="cg-text-sm">CocoGenie looks through this clip for its sharpest, best-lit frames, with a face if there is one.</p>
           <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" disabled={!!busy} onClick={() => act('frames')}>
             {busy === 'frames' ? <><span className="cg-spinner" /> Looking…</> : 'Find the best frames'}
           </button>

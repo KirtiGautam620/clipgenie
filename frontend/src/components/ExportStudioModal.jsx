@@ -66,7 +66,7 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
           </button>
         </div>
 
-        {/* 1. What you get: exactly what ClipGenie produces (there are no quality options to choose) */}
+        {/* 1. What you get: exactly what CocoGenie produces (there are no quality options to choose) */}
         <div className="cg-export-section">
           <label className="cg-label">Your file</label>
           <p className="cg-text-sm">MP4 video · 1080 × 1920 (9:16) · H.264 video with AAC audio</p>

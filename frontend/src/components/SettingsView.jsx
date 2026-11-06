@@ -33,7 +33,7 @@ export default function SettingsView({ health, musicCount = 0 }) {
         <section className="cg-card cg-settings-card">
           <h2 className="cg-heading-sm">Local AI Engine Status</h2>
           <p className="cg-text-xs cg-text-muted">
-            ClipGenie executes 100% locally on your Apple Silicon Mac without cloud APIs.
+            CocoGenie executes 100% locally on your Apple Silicon Mac without cloud APIs.
           </p>
 
           <div className="cg-settings-item">
@@ -74,7 +74,7 @@ export default function SettingsView({ health, musicCount = 0 }) {
             <div className="cg-settings-info">
               <span className="cg-settings-label">Music library</span>
               <span className="cg-text-xs cg-text-muted">
-                Licensed tracks ClipGenie can mix under your videos. Manage them in Music.
+                Licensed tracks CocoGenie can mix under your videos. Manage them in Music.
               </span>
             </div>
             <span className={`cg-badge ${musicCount > 0 ? 'cg-badge--success' : 'cg-badge--warning'}`}>
@@ -111,7 +111,7 @@ export default function SettingsView({ health, musicCount = 0 }) {
         <section className="cg-card cg-settings-card">
           <h2 className="cg-heading-sm">Legal Provenance & Copyright</h2>
           <p className="cg-text-xs cg-text-muted">
-            Short clips are not automatically copyright-free. ClipGenie generates cryptographically verifiable JSON rights reports alongside every export to safeguard content creators.
+            Short clips are not automatically copyright-free. CocoGenie generates cryptographically verifiable JSON rights reports alongside every export to safeguard content creators.
           </p>
         </section>
       </div>

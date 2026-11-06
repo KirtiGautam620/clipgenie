@@ -1,7 +1,7 @@
-# clipgenie
+# cocogenie
 A free, locally running AI video clipping agent for Hindi and English videos, with captions, background music, and Shorts export.
 
-Drop in a long video (an MP4 you upload, or a YouTube link to a video you own) and ClipGenie finds the
+Drop in a long video (an MP4 you upload, or a YouTube link to a video you own) and CocoGenie finds the
 most engaging moments, cuts them into vertical 9:16 clips with animated captions, adds background music
 that fits the mood, and lets you preview and download them. Everything runs on your own Mac: no paid
 APIs, no cloud, no accounts.
@@ -51,7 +51,7 @@ flagged with a warning.
 ## Copyright
 
 Please read [docs/COPYRIGHT.md](docs/COPYRIGHT.md). In short: short clips are not automatically
-copyright-free, and ClipGenie cannot check ownership or promise that YouTube's Content ID will not
+copyright-free, and CocoGenie cannot check ownership or promise that YouTube's Content ID will not
 flag a clip.
 
 ## Project layout

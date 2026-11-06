@@ -313,7 +313,7 @@ def start(sid: str, quality: str):
     if sid in _cancel:
         raise Busy("This storyboard is already being rendered.")
     if not heavy_job_lock.acquire(blocking=False):
-        raise Busy("ClipGenie is busy processing a video. Try again in a minute.")
+        raise Busy("CocoGenie is busy processing a video. Try again in a minute.")
     cancel, done = threading.Event(), threading.Event()
     _cancel[sid], _done[sid] = cancel, done
     try:
