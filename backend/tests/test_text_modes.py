@@ -145,10 +145,11 @@ def run_pipeline_for(monkeypatch, work, tokens):
     job, folder = make_transcript_job(work, tokens)
     calls = []
 
-    def fake_export(video, w, start, end, out, wd, framing, **k):
-        calls.append(k)
-        return {"mode": "center", "reason": "test", "audio": {"applied": False}}
-    monkeypatch.setattr(pipeline, "export_clip", fake_export)
+    def fake_create(folder, n, m):
+        calls.append({"cap_words": (m["text"]["captions"] or {}).get("words", [])})
+        return {"stages": ["picture", "text", "music"], "music": None,
+                "framing": {"mode": "center", "reason": "test", "audio": {"applied": False}}}
+    monkeypatch.setattr(pipeline.render, "create", fake_create)
     monkeypatch.setattr(pipeline, "_pauses", lambda f: ([], speech_envelope(30), 30.0))
     monkeypatch.setattr(pipeline.music, "pick_track", lambda mood, key: calls.append({"mood": mood}) or None)
     # the (made-up) AI picker gives this clip a title, reason and mood taken from the transcript
@@ -161,14 +162,14 @@ def run_pipeline_for(monkeypatch, work, tokens):
 def test_a_trusted_clip_gets_captions_as_before(folders, monkeypatch):
     clip, calls = run_pipeline_for(monkeypatch, folders[0], HINDI)
     assert clip["text"]["mode"] == "captions" and clip["text"]["verdict"] == "reliable"
-    assert clip["captions"]["words"] and calls[0]["cap_words"]
+    assert clip["captions"]["words"] and next(c for c in calls if "cap_words" in c)["cap_words"]
     assert clip["title"] == "Great Hook" and "withheld" not in clip
 
 
 def test_an_untrusted_clip_is_made_without_text_and_its_ai_text_is_withheld(folders, monkeypatch):
     clip, calls = run_pipeline_for(monkeypatch, folders[0], HINDI[:8] + ["तो"] * 40)
     assert clip["text"]["mode"] == "pending" and clip["text"]["verdict"] in ("unreliable", "unusable")
-    assert "captions" not in clip and calls[0]["cap_words"] == []
+    assert "captions" not in clip and next(c for c in calls if "cap_words" in c)["cap_words"] == []
     assert (clip["title"], clip["reason"], clip["mood"]) == ("Clip 1", "", "other")
     assert clip["withheld"]["title"] == "Great Hook"                         # kept internally only
     assert {"mood": "other"} in calls                                         # music is not picked from untrusted text

@@ -234,3 +234,39 @@ def _pick(segments: list[dict], min_len: float, max_len: float,
             "score": c["score"], "first": c["first"], "last": c["last"],
         })
     return out, "ok"
+
+
+# ---------------------------------------------------------------- the hook line
+
+HOOK_MAX_CHARS = 60
+
+HOOK_SYSTEM = """You write the on-screen hook for a vertical short video: ONE short line, shown at the
+start, that makes a viewer curious enough to keep watching.
+Rules:
+- Use ONLY what is said in the transcript. Never invent facts, numbers or promises.
+- Same language as the transcript (English, Hindi in Devanagari, or Hinglish in Roman letters).
+- At most 8 words and 60 characters. No hashtags, no emojis, no quotation marks, no clickbait lies.
+Answer ONLY with JSON: {"hook": "<the line>"}"""
+
+
+def clean_hook(raw) -> str | None:
+    """A model's hook line, checked. None if it is not usable (empty, too long, a link or a hashtag)."""
+    from app.captionstyles import clean_headline
+    if not isinstance(raw, str):
+        return None
+    text = raw.strip().strip("\"'“”‘’ ").strip()
+    if not text or len(text) > HOOK_MAX_CHARS or re.search(r"https?://|www\.|#\w|@\w", text):
+        return None
+    try:
+        return clean_headline(text)
+    except ValueError:
+        return None
+
+
+def suggest_hook(transcript_text: str) -> str | None:
+    """Ask the model for a hook line for this clip's words. Returns None if it gives nothing usable.
+    Raises LLMError if the model cannot be reached (the caller decides what that means)."""
+    text = transcript_text.strip()[:1500]
+    if len(text) < 20:
+        return None
+    return clean_hook(ask_json(HOOK_SYSTEM, text).get("hook"))

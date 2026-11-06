@@ -5,8 +5,52 @@ const BREAK_AFTER = '.,?!;:।';
 const PAUSE = 0.7;      // same rules the backend uses to group caption words
 const HOLD = 0.25;
 
-export function captionBlocks(captions) {
-  const words = captions?.words || [];
+// ── Time helpers: the finished video is the kept parts of the clip joined together ───────────────
+// man.segments are in source seconds; a "finished video" time is counted from 0 over the kept parts.
+
+export function outputLength(man) {
+  return man.segments.reduce((total, s) => total + (s.end - s.start), 0);
+}
+
+export function isCut(man) {
+  return Math.abs(outputLength(man) - (man.clip.end - man.clip.start)) > 0.01;
+}
+
+/** A source time -> finished-video time, or null when that moment was cut out. */
+export function sourceToOut(man, abs) {
+  let done = 0;
+  for (const s of man.segments) {
+    if (abs >= s.start - 0.001 && abs <= s.end + 0.001) return done + Math.max(0, abs - s.start);
+    done += s.end - s.start;
+  }
+  return null;
+}
+
+/** A finished-video time -> source time. */
+export function outToSource(man, t) {
+  let done = 0;
+  for (const s of man.segments) {
+    const len = s.end - s.start;
+    if (t <= done + len + 1e-9) return s.start + Math.max(0, t - done);
+    done += len;
+  }
+  return man.segments[man.segments.length - 1].end;
+}
+
+/** Caption words (stored from the clip's start) in finished-video time; words that were cut are dropped. */
+export function mapWords(words, man) {
+  if (!man || !isCut(man)) return words;
+  const out = [];
+  words.forEach((w) => {
+    const start = sourceToOut(man, man.clip.start + w.start);
+    const end = sourceToOut(man, man.clip.start + w.end);
+    if (start !== null && end !== null && end >= start) out.push({ ...w, start, end });
+  });
+  return out;
+}
+
+export function captionBlocks(captions, man) {
+  const words = mapWords(captions?.words || [], man);
   if (!words.length) return [];
   const max = captions.style?.words_per_line || 4;
   const groups = [];
@@ -31,7 +75,7 @@ export function captionBlocks(captions) {
   });
 }
 
-export function buildTracks(clip, duration) {
+export function buildTracks(clip, duration, man) {
   const text = clip.text || {};
   let textBlocks = [];
   let textLabel = 'Text';
@@ -42,15 +86,34 @@ export function buildTracks(clip, duration) {
       duration: seconds ? Math.min(seconds, duration) : duration }];
   } else if (text.mode === 'captions' || !clip.text) {
     textLabel = 'Captions';
-    textBlocks = captionBlocks(clip.captions);
+    textBlocks = captionBlocks(clip.captions, man);
   }
-  return [
-    { key: 'video', label: 'Video', blocks: [{ id: 'video', title: clip.title || `Clip ${clip.id}`, start: 0, duration }] },
+  const tracks = [
+    { key: 'video', label: 'Video', blocks: videoBlocks(clip, duration, man) },
     { key: 'captions', label: textLabel, blocks: textBlocks },
-    { key: 'music', label: 'Music', blocks: clip.music
-      ? [{ id: 'music', title: `${clip.music.title} (${Math.round((clip.music.volume ?? 0.6) * 100)}%)`, start: 0, duration }]
-      : [] },
   ];
+  const hook = text.hook;
+  if (hook?.approved && (text.mode === 'captions' || text.mode === 'none')) {
+    const seconds = hook.style?.seconds || duration;
+    tracks.push({ key: 'effects', label: 'Hook',
+      blocks: [{ id: 'hook', title: hook.text, start: 0, duration: Math.min(seconds, duration) }] });
+  }
+  tracks.push({ key: 'music', label: 'Music', blocks: clip.music
+    ? [{ id: 'music', title: `${clip.music.title} (${Math.round((clip.music.volume ?? 0.6) * 100)}%)`, start: 0, duration }]
+    : [] });
+  return tracks;
+}
+
+// One block per kept part, so shortened pauses show up as the joins between blocks.
+function videoBlocks(clip, duration, man) {
+  const title = clip.title || `Clip ${clip.id}`;
+  if (!man || !isCut(man)) return [{ id: 'video', title, start: 0, duration }];
+  let done = 0;
+  return man.segments.map((s, i) => {
+    const block = { id: `video-${i}`, title: i === 0 ? title : '', start: done, duration: s.end - s.start };
+    done += s.end - s.start;
+    return block;
+  });
 }
 
 export const FRAMING_LABELS = {

@@ -21,10 +21,19 @@ function RegenerateDrawer({ jobId, onClose, onStarted }) {
   const [maxLen, setMaxLen]   = useState(DEFAULTS.maxLen);
   const [count, setCount]     = useState(DEFAULTS.count);
   const [useAi, setUseAi]     = useState(DEFAULTS.useAi);
+  const [removePauses, setRemovePauses] = useState(true);
+  const [suggestHook, setSuggestHook]   = useState(true);
+  const [editMode, setEditMode]         = useState('auto');
+  const [styleId, setStyleId]           = useState('punchy');
+  const [styleList, setStyleList]       = useState([]);
   const [framing, setFraming] = useState(DEFAULTS.framing);
   const [busy, setBusy]       = useState(false);
   const [error, setError]     = useState('');
   const closeRef = useRef(null);
+
+  useEffect(() => {
+    getJSON('/api/styles').then((d) => setStyleList(d.styles.filter((s) => s.id !== d.default))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -37,7 +46,9 @@ function RegenerateDrawer({ jobId, onClose, onStarted }) {
     setBusy(true);
     setError('');
     try {
-      const params = new URLSearchParams({ min_len: minLen, max_len: maxLen, count, use_ai: useAi, framing });
+      const params = new URLSearchParams({ min_len: minLen, max_len: maxLen, count, use_ai: useAi, framing,
+        remove_pauses: removePauses, suggest_hook: suggestHook,
+        edit_mode: editMode, style_id: editMode === 'custom' ? styleId : 'natural' });
       await getJSON(`/api/jobs/${jobId}/clips?${params}`, { method: 'POST' });
       onStarted();
     } catch (e) {
@@ -95,6 +106,35 @@ function RegenerateDrawer({ jobId, onClose, onStarted }) {
             <input type="checkbox" checked={useAi} disabled={busy} onChange={(e) => setUseAi(e.target.checked)} />
             <span className="cg-toggle-track" />
             <span className="cg-toggle-label">Use AI to choose the best moments</span>
+          </label>
+
+          <div className="cg-field">
+            <label className="cg-label" htmlFor="rr-mode">How to edit</label>
+            <select id="rr-mode" className="cg-select" value={editMode} disabled={busy} onChange={(e) => setEditMode(e.target.value)}>
+              <option value="auto">Auto Edit</option>
+              <option value="assist">AI + Manual (opens the editor)</option>
+              <option value="custom">Custom Style</option>
+            </select>
+          </div>
+          {editMode === 'custom' && (
+            <div className="cg-field">
+              <label className="cg-label" htmlFor="rr-style">Style</label>
+              <select id="rr-style" className="cg-select" value={styleId} disabled={busy} onChange={(e) => setStyleId(e.target.value)}>
+                {styleList.map((st) => <option key={st.id} value={st.id}>{st.name}{st.builtin ? '' : ' (yours)'}</option>)}
+              </select>
+            </div>
+          )}
+
+          <label className="cg-toggle">
+            <input type="checkbox" checked={removePauses} disabled={busy} onChange={(e) => setRemovePauses(e.target.checked)} />
+            <span className="cg-toggle-track" />
+            <span className="cg-toggle-label">Tighten long pauses</span>
+          </label>
+
+          <label className="cg-toggle">
+            <input type="checkbox" checked={suggestHook} disabled={busy || !useAi} onChange={(e) => setSuggestHook(e.target.checked)} />
+            <span className="cg-toggle-track" />
+            <span className="cg-toggle-label">Suggest a hook line (needs AI)</span>
           </label>
 
           {error && <div className="cg-alert cg-alert--error" role="alert"><span>{error}</span></div>}

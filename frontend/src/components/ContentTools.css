@@ -1,0 +1,35 @@
+/* Publishing tools for one clip (title / description / hashtags, thumbnail). Botanical theme tokens only. */
+.cg-ct { display: flex; flex-direction: column; gap: 10px; }
+.cg-ct-field { display: flex; flex-direction: column; gap: 4px; }
+.cg-ct-textarea { resize: vertical; min-height: 64px; font-family: inherit; }
+.cg-ct-draft {
+  margin: 0; padding: 6px 10px; border-radius: var(--cg-radius-xs);
+  background: var(--cg-accent-muted); color: var(--cg-accent-text); font-size: 12px;
+}
+.cg-ct-credits { margin: 0; font-size: 11px; color: var(--cg-text-secondary); }
+.cg-ct-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cg-ct-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+.cg-ct-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.cg-ct-frame {
+  padding: 0; border: 2px solid transparent; border-radius: var(--cg-radius-xs); overflow: hidden;
+  background: var(--cg-bg-surface); cursor: pointer; aspect-ratio: 9 / 16;
+}
+.cg-ct-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cg-ct-frame.is-on { border-color: var(--cg-accent); box-shadow: 0 0 0 2px var(--cg-accent-muted); }
+.cg-ct-frame:focus-visible { outline: 2px solid var(--cg-accent); outline-offset: 2px; }
+
+.cg-ct-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.cg-ct-preset {
+  padding: 4px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+  border: 1px solid var(--cg-border-default); background: var(--cg-bg-surface); color: var(--cg-text-primary);
+}
+.cg-ct-preset.is-on { background: var(--cg-accent); border-color: var(--cg-accent); color: #fff; }
+
+.cg-ct-results { display: flex; flex-direction: column; gap: 6px; }
+.cg-ct-previews { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.cg-ct-preview { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.cg-ct-preview img { display: block; border-radius: var(--cg-radius-xs); border: 1px solid var(--cg-border-default); }
+.cg-ct-preview--9x16 img { width: 108px; height: 192px; }
+.cg-ct-preview--16x9 img { width: 256px; height: 144px; }
+.cg-ct-preview figcaption { display: flex; align-items: center; gap: 8px; color: var(--cg-text-secondary); }

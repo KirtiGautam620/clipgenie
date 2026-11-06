@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Timeline from './Timeline.jsx';
+import EditDecisionsPanel from './EditDecisionsPanel.jsx';
 import CaptionsStylePanel from './CaptionsStylePanel.jsx';
 import ExportStudioModal from './ExportStudioModal.jsx';
 import { getJSON } from '../api.js';
-import { buildTracks, FRAMING_LABELS } from '../studioTracks.js';
+import { buildTracks, FRAMING_LABELS, outputLength, outToSource, isCut } from '../studioTracks.js';
 import './StudioEditor.css';
 
 // Everything in this screen does what it says: what is shown comes from the clip's own data, and
@@ -127,43 +128,38 @@ const round1 = (n) => Math.round(n * 10) / 10;
 
 // Effects, fades and trim. One panel, one Apply: everything is sent to the server as the clip's
 // editing manifest, and the server remakes only the parts that changed.
-function EffectsPanel({ jobId, clip, onApplied, onScrub }) {
-  const [man, setMan] = useState(null);        // the clip's manifest, as the server has it
+function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState('none');
   const [fadeIn, setFadeIn] = useState(0);
   const [fadeOut, setFadeOut] = useState(0);
   const [fadeSound, setFadeSound] = useState(true);
-  const [trimStart, setTrimStart] = useState(0);   // seconds from the start of the video as it is now
+  const [trimStart, setTrimStart] = useState(0);   // seconds from the start of the finished video as it is now
   const [trimEnd, setTrimEnd] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const length = man ? man.clip.end - man.clip.start : 0;
+  // the finished video's length: the kept parts added up (shorter than the range when pauses were tightened)
+  const length = man ? outputLength(man) : 0;
 
-  // load the manifest, and again whenever the clip is remade
+  // start from what the server has, and again whenever the clip is remade
   useEffect(() => {
-    let cancelled = false;
+    if (!man) return;
     setError('');
-    getJSON(`/api/jobs/${jobId}/clips/${clip.id}/manifest`).then((m) => {
-      if (cancelled) return;
-      setMan(m);
-      setZoom(m.effects.zoom);
-      setPan(m.effects.pan);
-      setFadeIn(m.fades.in);
-      setFadeOut(m.fades.out);
-      setFadeSound(m.audio.fade_with_video);
-      setTrimStart(0);
-      setTrimEnd(round1(m.clip.end - m.clip.start));
-    }).catch((e) => { if (!cancelled) setError(e.message); });
-    return () => { cancelled = true; };
-  }, [jobId, clip.id, clip.version]);
+    setZoom(man.effects.zoom);
+    setPan(man.effects.pan);
+    setFadeIn(man.fades.in);
+    setFadeOut(man.fades.out);
+    setFadeSound(man.audio.fade_with_video);
+    setTrimStart(0);
+    setTrimEnd(round1(outputLength(man)));
+  }, [man]);
 
   if (!man) {
     return (
       <div className="cg-panel-content">
         <div className="cg-panel-header"><h3 className="cg-heading-sm">Effects</h3></div>
-        {error ? <p className="cg-text-xs cg-text-error">{error}</p> : <p className="cg-text-xs cg-text-muted">Loading…</p>}
+        <p className="cg-text-xs cg-text-muted">Loading…</p>
       </div>
     );
   }
@@ -184,8 +180,9 @@ function EffectsPanel({ jobId, clip, onApplied, onScrub }) {
       doc.effects = { zoom, pan };
       doc.fades = { in: fadeIn, out: fadeOut };
       doc.audio.fade_with_video = fadeSound;
-      doc.clip = { start: round1(man.clip.start + trimStart), end: round1(man.clip.start + trimEnd) };
-      if (!trimmed) doc.clip = man.clip;     // untouched: send the exact original range back
+      if (trimmed) {                           // sliders are in the finished video's time: back to source seconds
+        doc.clip = { start: round1(outToSource(man, trimStart)), end: round1(outToSource(man, trimEnd)) };
+      }                                        // untouched: the exact original range goes back
       const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/manifest`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -254,7 +251,7 @@ function EffectsPanel({ jobId, clip, onApplied, onScrub }) {
       <p className="cg-text-xs cg-text-muted">
         {trimmed ? `Keeps ${kept}s of ${round1(length)}s. ` : `Whole video: ${round1(length)}s. `}
         Trimming only shortens a video and cannot be undone here: to get the full length back, make the
-        videos again with Regenerate.
+        videos again with Regenerate.{isCut(man) ? ' Long pauses were already shortened in this video.' : ''}
       </p>
 
       {fadesToLong && <p className="cg-text-xs cg-text-error">The two fades are longer than the video you are keeping.</p>}
@@ -267,6 +264,78 @@ function EffectsPanel({ jobId, clip, onApplied, onScrub }) {
   );
 }
 
+// The hook: a title card over the first seconds, shown together with the captions. A suggestion from
+// ClipGenie is only a draft: nothing goes on the video until you press "Add to video".
+function HookSection({ jobId, clip, onApplied }) {
+  const hook = clip.text?.hook;
+  const [text, setText] = useState(hook?.text || '');
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => { setText(hook?.text || ''); setError(''); }, [clip.id, clip.version, hook?.text]);
+
+  async function send(body, label) {
+    setBusy(label);
+    setError('');
+    try {
+      const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/hook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      onApplied(updated);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  const drawn = !!hook?.approved;
+  const suggested = hook?.source === 'ai' && !drawn;
+  const clean = text.trim();
+  const previewQuery = new URLSearchParams({ preset: hook?.style?.preset || 'poster', seconds: String(hook?.style?.seconds || 3),
+    ...(clean ? { text: clean } : {}) }).toString();
+
+  return (
+    <div className="cg-hook-section">
+      <h4 className="cg-panel-subhead">Hook line</h4>
+      {suggested && (
+        <p className="cg-text-xs cg-text-muted">
+          ClipGenie suggests this hook from what is said. It is not on your video yet: edit it if you like, then add it.
+        </p>
+      )}
+      {!hook && (
+        <p className="cg-text-xs cg-text-muted">
+          A short title over the first seconds, shown together with the captions. Write your own.
+        </p>
+      )}
+      <label className="cg-field">
+        <span className="cg-text-sm">{drawn ? 'On your video' : 'Hook'}</span>
+        <textarea className="cg-input cg-headline-input" rows={2} maxLength={120} value={text}
+          placeholder="e.g. the one thing most people miss" disabled={!!busy}
+          onChange={(e) => setText(e.target.value)} />
+      </label>
+      {clean && <div className="cg-caption-preview"><img src={`/api/headline-preview.png?${previewQuery}`} alt="Hook preview" /></div>}
+      {error && <p className="cg-text-xs cg-text-error">{error}</p>}
+      <div className="cg-hook-actions">
+        <button type="button" className="cg-btn cg-btn--primary cg-btn--sm"
+          disabled={!clean || !!busy || (drawn && clean === hook.text)}
+          onClick={() => send({ text: clean, approve: true }, 'add')}>
+          {busy === 'add' ? 'Adding…' : drawn ? 'Update hook' : 'Add to video'}
+        </button>
+        {hook && (
+          <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={!!busy}
+            onClick={() => send({ remove: true }, 'remove')}>
+            {drawn ? 'Remove from video' : 'Discard suggestion'}
+          </button>
+        )}
+      </div>
+      {drawn && <p className="cg-text-xs cg-text-muted">Adding or removing a hook remakes the video and needs its checklist confirmed again.</p>}
+    </div>
+  );
+}
+
 export default function StudioEditor({
   jobId,
   clip: initialClip,
@@ -275,12 +344,14 @@ export default function StudioEditor({
   onClipUpdated,
 }) {
   const [clip, setClip] = useState(initialClip);
-  const [leftTab, setLeftTab] = useState(initialClip.text?.needs_decision ? 'captions' : 'text'); // text | captions | audio
+  const [leftTab, setLeftTab] = useState(   // text | captions | picture | audio | ai
+    initialClip.text?.needs_decision ? 'captions' : initialClip.edit?.mode === 'assist' ? 'ai' : 'text');
   const [showSafeZones, setShowSafeZones] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(initialClip.duration || 45);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [man, setMan] = useState(null);          // the clip's editing manifest (see the Effects tab)
   const videoRef = useRef(null);
 
   const base = `/api/jobs/${jobId}/clips/${clip.id}`;
@@ -289,6 +360,14 @@ export default function StudioEditor({
     setClip(updated);
     if (onClipUpdated) onClipUpdated(updated);
   };
+
+  // the manifest describes how this clip is made; load it again whenever the clip is remade
+  useEffect(() => {
+    let cancelled = false;
+    getJSON(`/api/jobs/${jobId}/clips/${clip.id}/manifest`).then((m) => { if (!cancelled) setMan(m); })
+      .catch(() => { if (!cancelled) setMan(null); });
+    return () => { cancelled = true; };
+  }, [jobId, clip.id, clip.version]);
 
   const handleSeek = (t) => {
     setCurrentTime(t);
@@ -331,7 +410,7 @@ export default function StudioEditor({
       <div className="cg-studio-stage">
         <aside className="cg-left-panel">
           <div className="cg-panel-tabs">
-            {[['text', 'Text'], ['captions', 'Captions'], ['picture', 'Effects'], ['audio', 'Music']].map(([id, label]) => (
+            {[['ai', 'AI edit'], ['text', 'Text'], ['captions', 'Captions'], ['picture', 'Effects'], ['audio', 'Music']].map(([id, label]) => (
               <button key={id} type="button" className={`cg-panel-tab ${leftTab === id ? 'active' : ''}`}
                 onClick={() => setLeftTab(id)}>
                 {label}
@@ -364,10 +443,16 @@ export default function StudioEditor({
                 <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={() => setLeftTab('captions')}>
                   Change the text
                 </button>
+                {(clip.text?.mode === 'captions' || clip.text?.mode === 'none') && (
+                  <HookSection jobId={jobId} clip={clip} onApplied={applied} />
+                )}
               </div>
             )}
             {leftTab === 'captions' && <CaptionsStylePanel jobId={jobId} clip={clip} onApplied={applied} />}
-            {leftTab === 'picture' && <EffectsPanel jobId={jobId} clip={clip} onApplied={applied} onScrub={handleSeek} />}
+            {leftTab === 'ai' && (
+              <EditDecisionsPanel jobId={jobId} clip={clip} man={man} onApplied={applied} onOpenText={() => setLeftTab('text')} />
+            )}
+            {leftTab === 'picture' && <EffectsPanel jobId={jobId} clip={clip} man={man} onApplied={applied} onScrub={handleSeek} />}
             {leftTab === 'audio' && <MusicPanel jobId={jobId} clip={clip} tracks={musicTracks} onApplied={applied} />}
           </div>
         </aside>
@@ -417,6 +502,10 @@ export default function StudioEditor({
               <dd>{cutInPause ? 'Start and end sit in natural pauses' : 'Short lead-in and tail around the speech'}</dd>
               <dt>Zoom</dt>
               <dd>{describeZoom(clip.effects)}</dd>
+              <dt>Pauses</dt>
+              <dd>{man && isCut(man)
+                ? `${round1(man.clip.end - man.clip.start - outputLength(man))}s of long pauses removed`
+                : 'As spoken'}</dd>
               <dt>Fades</dt>
               <dd>{describeFades(clip.fades)}</dd>
               <dt>Voice</dt>
@@ -440,7 +529,7 @@ export default function StudioEditor({
         duration={duration}
         currentTime={currentTime}
         onSeek={handleSeek}
-        tracks={buildTracks(clip, duration)}
+        tracks={buildTracks(clip, duration, man)}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
       />

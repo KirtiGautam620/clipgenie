@@ -472,3 +472,35 @@
   text-transform: uppercase;
   color: var(--cg-text-muted);
 }
+
+.cg-hook-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.cg-hook-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cg-decision-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+.cg-decision-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1px solid var(--cg-border-default);
+  border-radius: var(--cg-radius-sm);
+  background: var(--cg-bg-inset);
+}

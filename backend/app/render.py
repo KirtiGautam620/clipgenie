@@ -21,11 +21,14 @@ from app.export import apply_captions, apply_headline, apply_no_text, base_path,
 PICTURE, TEXT, MUSIC = "picture", "text", "music"
 
 
-def stages(old: dict, new: dict, force: set | frozenset = frozenset()) -> list[str]:
+def stages(old: dict | None, new: dict, force: set | frozenset = frozenset()) -> list[str]:
     """Which stages must run to turn a clip made from `old` into one made from `new`.
-    `force` adds stages even when nothing changed (an explicit 'apply')."""
+    `force` adds stages even when nothing changed (an explicit 'apply'). With no `old` (a clip
+    that does not exist yet) every stage runs."""
+    if old is None:
+        return [PICTURE, TEXT, MUSIC]
     todo = set(force)
-    if any(old[k] != new[k] for k in ("clip", "framing", "effects")) \
+    if any(old[k] != new[k] for k in ("clip", "segments", "framing", "effects")) \
             or old["audio"]["clean_voice"] != new["audio"]["clean_voice"]:
         todo.add(PICTURE)
     if (PICTURE in todo or old["text"] != new["text"] or old["fades"] != new["fades"]
@@ -42,14 +45,20 @@ def text_drawer(spec: dict, folder: Path, fades: dict | None = None, fade_audio:
     if spec["kind"] == "captions":
         style = captionstyles.resolve(spec["style"].get("preset"),
                                       {k: v for k, v in spec["style"].items() if k != "preset"})
-        return lambda base, target: apply_captions(base, spec["words"], style, target, folder, fades, fade_audio)
+        return lambda base, target: apply_captions(base, spec["words"], style, target, folder, fades, fade_audio,
+                                                   spec.get("hook"))
     if spec["kind"] == "headline":
         style = captionstyles.resolve_headline(spec["style"].get("preset"), spec["style"])
         return lambda base, target: apply_headline(base, spec["text"], style, target, folder, fades, fade_audio)
-    return lambda base, target: apply_no_text(base, target, fades, fade_audio)   # "none" or "pending"
+    return lambda base, target: apply_no_text(base, target, fades, fade_audio, spec.get("hook"))   # "none" or "pending"
 
 
-def render(folder: Path, clip_id: int, old: dict, new: dict, force: set | frozenset = frozenset()) -> dict:
+def create(folder: Path, clip_id: int, new: dict) -> dict:
+    """Make clip `clip_id` for the first time (or from scratch) from the manifest `new`."""
+    return render(folder, clip_id, None, new)
+
+
+def render(folder: Path, clip_id: int, old: dict | None, new: dict, force: set | frozenset = frozenset()) -> dict:
     """Rebuild clip `clip_id` in `folder` from the manifest `new`. Returns what happened:
     {"stages": [...], "framing": info or None, "music": track dict or None}.
     Raises (and changes nothing on disk) if any stage fails."""

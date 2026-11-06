@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getJSON } from '../api.js';
+import { CopyEditor, ThumbnailMaker } from './ContentTools.jsx';
 import './ExportStudioModal.css';
 
 export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, onChooseText }) {
   const [ticked, setTicked] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [copiedMeta, setCopiedMeta] = useState(false);
   const dialogRef = useRef(null);
 
   const base = `/api/jobs/${jobId}/clips/${clip.id}`;
@@ -45,21 +45,7 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
     setBusy(false);
   };
 
-  // A generic "Clip 3" is not a title: leave it out rather than publish it
-  const named = !!clip.title && !/^Clip \d+$/.test(clip.title);
   const needsDecision = !!clip.text?.needs_decision;
-  const socialTitle = named ? clip.title : '(add your own title)';
-  const socialDescription = `${named ? clip.title : ''}\n\n${clip.reason || ''}\n\n#shorts\n\n${clip.credits || ''}`;
-
-  const handleCopyMeta = async () => {
-    try {
-      await navigator.clipboard.writeText(socialDescription);
-      setCopiedMeta(true);
-      setTimeout(() => setCopiedMeta(false), 1800);
-    } catch {
-      // fallback
-    }
-  };
 
   return (
     <div
@@ -121,25 +107,16 @@ export default function ExportStudioModal({ jobId, clip, onClose, onConfirmed, o
           </div>
         </div>
 
-        {/* 3. Social Publishing Metadata */}
+        {/* 3. Title, description and hashtags: yours, or an AI draft you edit and save */}
         <div className="cg-export-section">
-          <div className="cg-checklist-title-row">
-            <label className="cg-label">Social Metadata & Attribution</label>
-            <button
-              type="button"
-              className="cg-btn cg-btn--sm cg-btn--secondary"
-              onClick={handleCopyMeta}
-            >
-              {copiedMeta ? '✓ Copied' : 'Copy All Metadata'}
-            </button>
-          </div>
-          <div className="cg-meta-preview-box">
-            <p className="cg-meta-preview-title"><strong>Title:</strong> {socialTitle}</p>
-            <p className="cg-meta-preview-desc"><strong>Tags:</strong> #shorts</p>
-            {clip.credits && (
-              <p className="cg-meta-preview-credits"><strong>Attribution:</strong> {clip.credits}</p>
-            )}
-          </div>
+          <label className="cg-label">Title, description & hashtags</label>
+          <CopyEditor jobId={jobId} clipId={clip.id} />
+        </div>
+
+        {/* 4. Thumbnail: a real frame of the clip, with your text */}
+        <div className="cg-export-section">
+          <label className="cg-label">Thumbnail</label>
+          <ThumbnailMaker jobId={jobId} clipId={clip.id} confirmed={clip.confirmed} />
         </div>
 
         {needsDecision && (

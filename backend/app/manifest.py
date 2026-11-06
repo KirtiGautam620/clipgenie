@@ -2,13 +2,17 @@
 
     {"version": 1,
      "clip":        {"start": 0.0, "end": 25.14},            seconds in the source video (the cut)
+     "segments":    [{"start": 0.0, "end": 25.14}],          the parts of it that are kept, in order;
+                                                             gaps between them are removed (pauses)
      "framing":     {"mode": "crop" | "blur"},
      "effects":     {"zoom": 1.0, "pan": "none"},            see effects.py
      "fades":       {"in": 0.0, "out": 0.0},                 picture (and text) fade, seconds, 0 to 3
      "transitions": [],                                      RESERVED: must stay empty in version 1
      "text":        {"mode": "captions" | "pending" | "headline" | "none",
                      "captions": {"style": {...}, "words": [...]} | null,
-                     "headline": {"text": "...", "style": {...}} | null},
+                     "headline": {"text": "...", "style": {...}} | null,
+                     "hook":     {"text": "...", "style": {...}} | null},   a title card over the first
+                                                                           seconds, WITH captions or no text
      "audio":       {"clean_voice": true,
                      "fade_with_video": true,                 the sound fades with the picture
                      "music": {"track_id": "...", "volume": 0.6} | null}}
@@ -28,12 +32,18 @@ accepting a value the renderer would ignore would make preview and export disagr
 Words of a clip whose speech is not trusted are never put in the manifest (see textmode.py).
 """
 import copy
+import json
 import math
+import os
 from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
 
-from app import effects, textmode
+from app import captionstyles, effects, textmode
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+ACCEPTED_VERSIONS = (1, 2)      # version 1 documents (no segments) are read and upgraded
+MIN_SEGMENT_SECONDS = 0.2
 FRAMINGS = ("crop", "blur")
 TEXT_MODES = ("captions", "pending", "headline", "none")
 MAX_FADE = 3.0
@@ -48,11 +58,12 @@ def default_manifest(start: float, end: float) -> dict:
     return {
         "version": SCHEMA_VERSION,
         "clip": {"start": float(start), "end": float(end)},
+        "segments": [{"start": float(start), "end": float(end)}],
         "framing": {"mode": "crop"},
         "effects": dict(effects.DEFAULT),
         "fades": {"in": 0.0, "out": 0.0},
         "transitions": [],
-        "text": {"mode": "captions", "captions": None, "headline": None},
+        "text": {"mode": "captions", "captions": None, "headline": None, "hook": None},
         "audio": {"clean_voice": True, "fade_with_video": True, "music": None},
     }
 
@@ -63,6 +74,8 @@ def from_clip(clip: dict) -> dict:
     start = cut.get("cut_start", clip.get("start", 0.0))
     end = cut.get("cut_end", clip.get("end", start))
     m = default_manifest(start, end)
+    if clip.get("segments"):
+        m["segments"] = deepcopy(clip["segments"])
     if clip.get("framing_choice") in FRAMINGS:
         m["framing"]["mode"] = clip["framing_choice"]
     if clip.get("effects"):
@@ -82,6 +95,9 @@ def from_clip(clip: dict) -> dict:
     if mode == "captions" and caps and not textmode.is_untrusted(clip):
         m["text"]["captions"] = {"style": deepcopy(caps.get("style", {})),
                                  "words": deepcopy(caps.get("words", []))}
+    hook = state.get("hook")
+    if hook and hook.get("approved") and mode in ("captions", "none"):     # only an APPROVED hook is drawn
+        m["text"]["hook"] = {"text": hook.get("text", ""), "style": deepcopy(hook.get("style", {}))}
     head = state.get("headline")
     if mode == "headline" and head:
         m["text"]["headline"] = {"text": head.get("text", ""), "style": deepcopy(head.get("style", {}))}
@@ -114,9 +130,9 @@ def validate(manifest: dict) -> dict:
     if not isinstance(manifest, dict):
         raise ValueError("The manifest must be an object.")
     version = manifest.get("version")
-    if version != SCHEMA_VERSION:
-        raise ValueError(f"Unsupported manifest version {version!r}; this ClipGenie reads version "
-                         f"{SCHEMA_VERSION}.")
+    if version not in ACCEPTED_VERSIONS:
+        raise ValueError(f"Unsupported manifest version {version!r}; this ClipGenie reads versions "
+                         f"{', '.join(map(str, ACCEPTED_VERSIONS))}.")
 
     span = _section(manifest, "clip")
     start = _number(span.get("start"), "clip.start", 0, 86400 * 4)
@@ -130,13 +146,18 @@ def validate(manifest: dict) -> dict:
     if mode not in FRAMINGS:
         raise ValueError("framing.mode must be crop or blur.")
 
-    out = {"version": SCHEMA_VERSION, "clip": {"start": start, "end": end},
+    segments = _check_segments(manifest.get("segments"), start, end)
+    kept = sum(s["end"] - s["start"] for s in segments)
+    if kept < MIN_CLIP_SECONDS:
+        raise ValueError(f"A video must be at least {MIN_CLIP_SECONDS:g} second long.")
+
+    out = {"version": SCHEMA_VERSION, "clip": {"start": start, "end": end}, "segments": segments,
            "framing": {"mode": mode}, "effects": effects.normalize(_section(manifest, "effects"))}
 
     fades = _section(manifest, "fades")
     fade_in = _number(fades.get("in", 0.0), "fades.in", 0, MAX_FADE)
     fade_out = _number(fades.get("out", 0.0), "fades.out", 0, MAX_FADE)
-    if fade_in + fade_out > end - start:
+    if fade_in + fade_out > kept:
         raise ValueError("The fades together are longer than the video.")
     out["fades"] = {"in": round(fade_in, 2), "out": round(fade_out, 2)}
     if _section(manifest, "transitions", list):
@@ -158,7 +179,23 @@ def validate(manifest: dict) -> dict:
         headline = {"text": str(headline["text"]), "style": dict(headline.get("style") or {})}
     if captions is not None:
         captions = _check_captions(captions, end - start)
-    out["text"] = {"mode": tmode, "captions": captions, "headline": headline if tmode == "headline" else None}
+    hook = text.get("hook")
+    if hook:
+        if tmode not in ("captions", "none"):
+            raise ValueError("A hook can only be shown together with captions or with no other text.")
+        if not isinstance(hook, dict) or not str(hook.get("text", "")).strip():
+            raise ValueError("A hook needs its text.")
+        style = dict(hook.get("style") or {})
+        try:                                    # checked with the same rules as a headline's look
+            style = captionstyles.resolve_headline(style.get("preset") or captionstyles.DEFAULT_HEADLINE_PRESET,
+                                                   {k: v for k, v in style.items() if k != "preset"}).as_dict()
+            hook = {"text": captionstyles.clean_headline(hook["text"]), "style": style}
+        except ValueError as e:
+            raise ValueError(f"The hook is not usable: {e}")
+    else:
+        hook = None
+    out["text"] = {"mode": tmode, "captions": captions, "headline": headline if tmode == "headline" else None,
+                   "hook": hook}
 
     audio = _section(manifest, "audio")
     clean = audio.get("clean_voice", True)
@@ -195,6 +232,69 @@ def _check_captions(captions, length: float) -> dict:
     return {"style": dict(captions.get("style") or {}), "words": clean}
 
 
+def _check_segments(segments, start: float, end: float) -> list[dict]:
+    """The kept parts of the clip, tidied: missing means the whole clip; parts are cut to the clip's
+    range (so trimming just works), sorted, and may not overlap."""
+    if segments is None:
+        return [{"start": start, "end": end}]
+    if not isinstance(segments, list) or not segments:
+        raise ValueError("segments must be a list with at least one part.")
+    kept = []
+    for i, seg in enumerate(segments):
+        if not isinstance(seg, dict):
+            raise ValueError(f"Segment {i + 1} must be an object.")
+        s = _number(seg.get("start"), f"Segment {i + 1} start", 0, 86400 * 4)
+        e = _number(seg.get("end"), f"Segment {i + 1} end", 0, 86400 * 4)
+        s, e = max(s, start), min(e, end)
+        if e - s >= MIN_SEGMENT_SECONDS:
+            kept.append({"start": round(s, 3), "end": round(e, 3)})
+    if not kept:
+        raise ValueError("None of the kept parts are inside the video's range.")
+    kept.sort(key=lambda s: s["start"])
+    for a, b in zip(kept, kept[1:]):
+        if b["start"] < a["end"] - 0.001:
+            raise ValueError("The kept parts of the video overlap.")
+    return kept
+
+
+def output_length(m: dict) -> float:
+    """How long the finished video is: the kept parts added up."""
+    return sum(s["end"] - s["start"] for s in m["segments"])
+
+
+def is_cut(m: dict) -> bool:
+    """True when parts of the clip are removed (so the video is shorter than its range)."""
+    return abs(output_length(m) - (m["clip"]["end"] - m["clip"]["start"])) > 0.01
+
+
+def source_time(m: dict, t: float) -> float:
+    """A moment of the finished video (seconds from its start) -> the same moment in the source video."""
+    done = 0.0
+    for seg in m["segments"]:
+        length = seg["end"] - seg["start"]
+        if t <= done + length + 1e-9:
+            return seg["start"] + max(0.0, t - done)
+        done += length
+    return m["segments"][-1]["end"]
+
+
+def remap_words(words: list[dict], m: dict) -> list[dict]:
+    """Caption words are stored in time from the clip's start. When parts are removed, the picture
+    moves earlier by the removed time, so the words must too. A word that is cut in two, or sits
+    in a removed part, is dropped."""
+    if not is_cut(m):
+        return words
+    origin, out, done = m["clip"]["start"], [], 0.0
+    for seg in m["segments"]:
+        lo, hi = seg["start"] - origin, seg["end"] - origin
+        for w in words:
+            if w["start"] >= lo - 0.03 and w["end"] <= hi + 0.03:
+                out.append({**w, "start": max(0.0, done + max(w["start"], lo) - lo),
+                            "end": done + min(w["end"], hi) - lo})
+        done += hi - lo
+    return out
+
+
 def trim_captions(captions: dict, offset: float, length: float) -> dict:
     """Caption words after the video's start moved later by `offset` seconds and its length became
     `length`: times shift earlier by `offset`; a word that is cut in half by either new edge is
@@ -217,20 +317,100 @@ def check_renderable(manifest: dict) -> None:
                          "cannot be remade without losing them. Make new clips from this video.")
 
 
+# ---------------------------------------------------------------- the saved manifest
+
+HISTORY_KEEP = 20
+
+
+def store_path(folder: Path, clip_id: int) -> Path:
+    return Path(folder) / f"clip_{clip_id}.manifest.json"
+
+
+def load(folder: Path, clip_id: int) -> dict | None:
+    """The manifest saved for a clip (the one its current video was made from), or None."""
+    path = store_path(folder, clip_id)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())["current"]
+    except (ValueError, KeyError, OSError):
+        return None
+
+
+def save(folder: Path, clip_id: int, manifest: dict, reason: str = "") -> None:
+    """Make `manifest` the clip's saved manifest. The one it replaces goes into a short history
+    (newest first), so an earlier version can be brought back later."""
+    path = store_path(folder, clip_id)
+    history = []
+    if path.exists():
+        try:
+            old = json.loads(path.read_text())
+            history = [{"manifest": old["current"], "saved_at": old.get("saved_at"), "reason": old.get("reason", "")},
+                       *old.get("history", [])][:HISTORY_KEEP]
+        except (ValueError, KeyError, OSError):
+            history = []
+    doc = {"current": manifest, "saved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "reason": reason, "history": history}
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(doc, ensure_ascii=False))
+    os.replace(tmp, path)
+
+
+def baseline_path(folder: Path, clip_id: int) -> Path:
+    return Path(folder) / f"clip_{clip_id}.baseline.json"
+
+
+def save_baseline(folder: Path, clip_id: int, manifest: dict, edit: dict | None = None) -> None:
+    """Keep the manifest ClipGenie made for a new clip, untouched by later edits, so the user can
+    always go back to it. `edit` = how it was made (mode and style), saved beside it."""
+    path = baseline_path(folder, clip_id)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps({"manifest": manifest, "edit": edit or {}}, ensure_ascii=False))
+    os.replace(tmp, path)
+
+
+def load_baseline(folder: Path, clip_id: int) -> tuple[dict, dict] | None:
+    """(the AI's manifest, how it was made) for a clip, or None for clips made before this existed."""
+    try:
+        doc = json.loads(baseline_path(folder, clip_id).read_text())
+        return validate(doc["manifest"]), doc.get("edit", {})
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def current(folder: Path, clip: dict) -> dict:
+    """The clip's manifest, validated: the saved one when there is one, else built from the clip
+    entry (every project made before manifests were saved works this way)."""
+    saved = load(folder, clip["id"])
+    if saved is not None:
+        try:
+            m = validate(saved)
+        except ValueError:
+            m = None
+        if m is not None:
+            if textmode.is_untrusted(clip):
+                m["text"]["captions"] = None      # never from an untrusted transcript
+            return m
+    return validate(from_clip(clip))
+
+
 # ---------------------------------------------------------------- reading it (renderer)
 
 def render_args(manifest: dict) -> dict:
     """Arguments for export.render_base (stage 1: picture + voice, no text)."""
     m = validate(manifest)
     return {"start": m["clip"]["start"], "end": m["clip"]["end"], "framing": m["framing"]["mode"],
-            "clean_audio": m["audio"]["clean_voice"], "effects": m["effects"]}
+            "clean_audio": m["audio"]["clean_voice"], "effects": m["effects"],
+            "segments": [(s["start"], s["end"]) for s in m["segments"]] if is_cut(m) else None}
 
 
 def text_drawer_spec(manifest: dict) -> dict:
     """What goes on top of the picture (stage 2): {"kind": "captions"|"headline"|"none", ...}."""
-    t = validate(manifest)["text"]
+    m = validate(manifest)
+    t = m["text"]
     if t["mode"] == "captions" and t["captions"] is not None:
-        return {"kind": "captions", **t["captions"]}
+        return {"kind": "captions", "style": t["captions"]["style"], "hook": t["hook"],
+                "words": remap_words(t["captions"]["words"], m)}       # in time of the finished video
     if t["mode"] == "headline":
         return {"kind": "headline", **t["headline"]}
-    return {"kind": "none"}
+    return {"kind": "none", "hook": t["hook"]}

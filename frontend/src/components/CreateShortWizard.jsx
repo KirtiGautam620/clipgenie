@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Icon from './Icon.jsx';
+import { getJSON } from '../api.js';
 import './CreateShortWizard.css';
 
 const RIGHTS_OPTIONS = [
@@ -7,6 +8,12 @@ const RIGHTS_OPTIONS = [
   { value: 'permission', label: "I have the owner's permission to edit & publish", urlOk: true },
   { value: 'licensed', label: 'Public domain or licensed for reuse (e.g. CC BY)', urlOk: true },
   { value: 'unsure', label: "I'm not sure (clips only — cannot import from URL)", urlOk: false },
+];
+
+const EDIT_MODES = [
+  { id: 'auto', title: 'Auto Edit', text: 'ClipGenie makes every editing decision and finishes the videos.' },
+  { id: 'assist', title: 'AI + Manual', text: 'ClipGenie edits first, then opens the editor so you can change any decision.' },
+  { id: 'custom', title: 'Custom Style', text: 'You choose an editing style and ClipGenie applies it to every video.' },
 ];
 
 // How the picture is framed. These are the two real choices the backend understands.
@@ -30,10 +37,20 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSou
   const [useAi, setUseAi] = useState(true);
   const [framing, setFraming] = useState('crop');
   const [musicOn, setMusicOn] = useState(true);
+  const [editMode, setEditMode] = useState('auto');        // auto | assist | custom
+  const [styleId, setStyleId] = useState('punchy');
+  const [styleList, setStyleList] = useState([]);
+  const [removePauses, setRemovePauses] = useState(true);
+  const [suggestHook, setSuggestHook] = useState(true);
   const [musicVol, setMusicVol] = useState(0.6);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
+
+  // the editing styles on offer (built in, plus any the user saved)
+  useEffect(() => {
+    getJSON('/api/styles').then((d) => setStyleList(d.styles.filter((s) => s.id !== d.default))).catch(() => {});
+  }, []);
 
   const ready = rights && (source === 'file' ? file : url.trim());
 
@@ -64,6 +81,10 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSou
       framing,
       musicOn,
       musicVol,
+      removePauses,
+      suggestHook,
+      editMode,
+      styleId: editMode === 'custom' ? styleId : 'natural',
     });
   };
 
@@ -200,10 +221,63 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSou
             <p className="cg-text-xs cg-text-muted">Output is vertical 9:16, made for Shorts, Reels and TikTok.</p>
           </section>
 
-          {/* ── STEP 4: Rights Declaration ────────────────────────────── */}
+          {/* ── Auto Edit: what ClipGenie does for you ──────────────────── */}
           <section className="cg-wizard-card">
             <h2 className="cg-wizard-step-title">
               <span className="cg-wizard-step-num">3</span>
+              <span>How should ClipGenie edit?</span>
+            </h2>
+            <div className="cg-mode-grid" role="radiogroup" aria-label="Editing mode">
+              {EDIT_MODES.map((m) => (
+                <div key={m.id} role="radio" aria-checked={editMode === m.id} tabIndex={0}
+                  className={`cg-aspect-card ${editMode === m.id ? 'active' : ''}`}
+                  onClick={() => setEditMode(m.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditMode(m.id); } }}>
+                  <div className="cg-aspect-info">
+                    <p className="cg-aspect-name">{m.title}</p>
+                    <span className="cg-text-xs cg-text-muted">{m.text}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {editMode === 'custom' && (
+              <div className="cg-style-grid" role="radiogroup" aria-label="Editing style">
+                {styleList.length === 0 && <p className="cg-text-xs cg-text-muted">Loading styles…</p>}
+                {styleList.map((st) => (
+                  <div key={st.id} role="radio" aria-checked={styleId === st.id} tabIndex={0}
+                    className={`cg-aspect-card ${styleId === st.id ? 'active' : ''}`}
+                    onClick={() => setStyleId(st.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStyleId(st.id); } }}>
+                    <div className="cg-aspect-info">
+                      <p className="cg-aspect-name">{st.name}{st.builtin ? '' : ' (yours)'}</p>
+                      <span className="cg-text-xs cg-text-muted">{st.description}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="cg-autoedit-list">
+              <label className="cg-toggle">
+                <input type="checkbox" checked={removePauses} onChange={(e) => setRemovePauses(e.target.checked)} />
+                <span className="cg-toggle-track" />
+                <span className="cg-toggle-label">
+                  <strong>Tighten long pauses</strong>: shorten silences over a second to a short beat
+                </span>
+              </label>
+              <label className="cg-toggle">
+                <input type="checkbox" checked={suggestHook} onChange={(e) => setSuggestHook(e.target.checked)} />
+                <span className="cg-toggle-track" />
+                <span className="cg-toggle-label">
+                  <strong>Suggest a hook line</strong>: a title for the first seconds. You approve it before it is used
+                </span>
+              </label>
+            </div>
+          </section>
+
+          {/* ── STEP 4: Rights Declaration ────────────────────────────── */}
+          <section className="cg-wizard-card">
+            <h2 className="cg-wizard-step-title">
+              <span className="cg-wizard-step-num">4</span>
               <span>Who owns this video? <span className="cg-required">*</span></span>
             </h2>
 

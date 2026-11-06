@@ -10,7 +10,7 @@ from pathlib import Path
 
 from app.audiofx import has_audio, voice_filter
 from app.captions import headline_png, headline_y, render_track, strip_y, words_in_clip
-from app.captionstyles import CaptionStyle, HeadlineStyle, resolve
+from app.captionstyles import CaptionStyle, HeadlineStyle, resolve, resolve_headline
 from app.effects import zoom_filter
 from app.framing import Plan, crop_x_expression, plan_for_clip
 
@@ -77,21 +77,38 @@ def _tail(base: Path, filter_graph: str, label: str, fades: dict | None, fade_au
     return filter_graph, "vf", ["-c:a", "copy"]
 
 
+def _hook_card(hook: dict, work: Path, out: Path, duration: float, index: int) -> tuple[Path, str, int]:
+    """The hook as a card picture: (png, filter that fades it in/out, where it sits on the video)."""
+    style = resolve_headline(hook["style"].get("preset"), {k: v for k, v in hook["style"].items() if k != "preset"})
+    png = work / f"{out.stem}_hook.png"
+    png.write_bytes(headline_png(hook["text"], style))
+    fades = f"fade=t=in:st=0:d={FADE}:alpha=1"
+    if style.seconds and style.seconds < duration:
+        fades += f",fade=t=out:st={style.seconds - FADE:.2f}:d={FADE}:alpha=1"
+    return png, f"[{index}:v]format=rgba,{fades}[h]", headline_y(style, OUT_H)
+
+
 def apply_captions(base: Path, cap_words: list[dict], style: CaptionStyle, out: Path,
-                   work: Path, fades: dict | None = None, fade_audio: bool = True) -> None:
+                   work: Path, fades: dict | None = None, fade_audio: bool = True,
+                   hook: dict | None = None) -> None:
     """Stage 2: lay the captions over the caption-free base clip. The sound is copied as it is
-    (unless fades are asked for: then the picture, captions included, fades in and out)."""
+    (unless fades are asked for: then the picture, captions included, fades in and out).
+    `hook` = {"text", "style"}: a title card shown over the first seconds, together with the captions."""
     duration = float(subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(base)],
         check=True, capture_output=True, text=True).stdout)
     track = render_track(cap_words, duration, style, work, out.stem)
     if track is None:                       # nobody speaks: no captions to draw
-        apply_no_text(base, out, fades, fade_audio)
+        apply_no_text(base, out, fades, fade_audio, hook)
         return
-    graph, label, audio = _tail(
-        base, f"[0:v][1:v]overlay=0:{strip_y(style, OUT_H)}:eof_action=pass:format=auto[v]", "v",
-        fades, fade_audio, duration)
-    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-i", str(base), "-i", str(track),
+    overlay = f"[0:v][1:v]overlay=0:{strip_y(style, OUT_H)}:eof_action=pass:format=auto"
+    inputs, card = ["-i", str(base), "-i", str(track)], None
+    if hook:
+        card, card_filter, card_y = _hook_card(hook, work, out, duration, 2)
+        inputs += ["-loop", "1", "-framerate", "25", "-t", f"{duration:.3f}", "-i", str(card)]
+        overlay += f"[c];{card_filter};[c][h]overlay=0:{card_y}:eof_action=pass:format=auto"
+    graph, label, audio = _tail(base, overlay + "[v]", "v", fades, fade_audio, duration)
+    cmd = ["ffmpeg", "-loglevel", "error", "-y", *inputs,
            "-filter_complex", graph,
            "-map", f"[{label}]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
            "-pix_fmt", "yuv420p", *audio, "-t", f"{duration:.3f}", str(out)]
@@ -101,6 +118,8 @@ def apply_captions(base: Path, cap_words: list[dict], style: CaptionStyle, out: 
         raise RuntimeError(f"ffmpeg failed: {e.stderr[-400:]}") from e
     finally:
         track.unlink(missing_ok=True)
+        if card:
+            card.unlink(missing_ok=True)
 
 
 FADE = 0.35
@@ -139,26 +158,43 @@ def apply_headline(base: Path, text: str, style: HeadlineStyle, out: Path, work:
         png.unlink(missing_ok=True)
 
 
-def apply_no_text(base: Path, out: Path, fades: dict | None = None, fade_audio: bool = True) -> None:
-    """The finished clip with no text at all: the caption-free base, as it is
-    (or, when fades are asked for, the same picture fading in and out)."""
-    if not fades_active(fades):
+def apply_no_text(base: Path, out: Path, fades: dict | None = None, fade_audio: bool = True,
+                  hook: dict | None = None) -> None:
+    """The finished clip with no captions: the caption-free base, as it is (or, when fades or a hook
+    are asked for, the same picture with them added in one encode)."""
+    if not fades_active(fades) and not hook:
         shutil.copyfile(base, out)
         return
     duration = _duration(base)
-    graph, label, audio = _tail(base, "[0:v]null[v]", "v", fades, fade_audio, duration)
-    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-i", str(base), "-filter_complex", graph,
+    inputs, card, source = ["-i", str(base)], None, "[0:v]null[v]"
+    if hook:
+        card, card_filter, card_y = _hook_card(hook, out.parent, out, duration, 1)
+        inputs += ["-loop", "1", "-framerate", "25", "-t", f"{duration:.3f}", "-i", str(card)]
+        source = f"{card_filter};[0:v][h]overlay=0:{card_y}:eof_action=pass:format=auto[v]"
+    graph, label, audio = _tail(base, source, "v", fades, fade_audio, duration)
+    cmd = ["ffmpeg", "-loglevel", "error", "-y", *inputs, "-filter_complex", graph,
            "-map", f"[{label}]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
            "-pix_fmt", "yuv420p", *audio, "-t", f"{duration:.3f}", str(out)]
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"ffmpeg failed: {e.stderr[-400:]}") from e
+    finally:
+        if card:
+            card.unlink(missing_ok=True)
+
+
+def _select(spans: list[tuple[float, float]]) -> str:
+    """Filter expression that keeps only these (start, end) spans of the clip, in seconds."""
+    return "+".join(f"between(t\\,{a:.3f}\\,{b:.3f})" for a, b in spans)
 
 
 def render_base(video: Path, start: float, end: float, base: Path, framing: str = "crop",
-                clean_audio: bool = True, effects: dict | None = None) -> dict:
+                clean_audio: bool = True, effects: dict | None = None,
+                segments: list[tuple[float, float]] | None = None) -> dict:
     """Stage 1 alone: picture (framed, with the optional zoom/pan effect) + voice, no captions.
+    `segments` = the (start, end) parts of video[start:end] to keep, in source seconds; the gaps
+    between them (pauses) are removed. None keeps everything.
     Writes `base`. Returns how the picture was framed plus an "audio" report."""
     src_w, src_h = video_size(video)
     duration = end - start
@@ -168,20 +204,36 @@ def render_base(video: Path, start: float, end: float, base: Path, framing: str 
         if plan.mode == "blur":       # several faces too far apart: show the whole picture
             framing = "blur"
 
-    effect = zoom_filter(effects, duration, OUT_W, OUT_H)
-    graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]" if effect else "[v]")
-    if effect:                        # zoom/pan works on the framed 1080x1920 picture
-        graph += f";[vf]{effect},setsar=1[v]"
+    spans = [(a - start, b - start) for a, b in segments] if segments else None
+    out_duration = sum(b - a for a, b in spans) if spans else duration
+    effect = zoom_filter(effects, out_duration, OUT_W, OUT_H)
+
+    # the picture: framed first (the speaker tracking works in the clip's own time), then the
+    # removed parts are dropped, then zoom/pan runs over the finished timeline
+    steps = []
+    if spans:
+        steps.append(f"fps=25,select={_select(spans)},setpts=N/(25*TB)")
+    if effect:
+        steps.append(f"{effect},setsar=1")
+    graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]" if steps else "[v]")
+    if steps:
+        graph += f";[vf]{','.join(steps)}[v]"
+
     audio_report = {"applied": False}
     voice = None
     if clean_audio:
-        voice, audio_report = voice_filter(video, start, duration)
+        voice, audio_report = voice_filter(video, start, duration, out_duration)
+    pieces = []
+    if spans and (voice or has_audio(video)):
+        pieces.append(f"aselect={_select(spans)},asetpts=N/SR/TB")
     if voice:
-        graph += f";[0:a]{voice}[a]"
+        pieces.append(voice)
+    if pieces:
+        graph += f";[0:a]{','.join(pieces)}[a]"
     cmd = ["ffmpeg", "-loglevel", "error", "-y",
            "-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", str(video),
-           "-filter_complex", graph, "-map", "[v]", "-map", "[a]" if voice else "0:a?",
-           "-t", f"{duration:.3f}",
+           "-filter_complex", graph, "-map", "[v]", "-map", "[a]" if pieces else "0:a?",
+           "-t", f"{out_duration:.3f}",
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p",
            "-c:a", "aac", "-b:a", "160k", str(base)]
     try:

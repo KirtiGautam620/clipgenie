@@ -25,10 +25,11 @@ def run(monkeypatch, work, tokens, **kw):
     job, folder = make_transcript_job(work, tokens, **kw)
     exported = []
 
-    def fake_export(video, words_, start, end, out, work_dir, framing, **k):
-        exported.append(k)                                   # what the export was told to draw
-        return {"mode": "center", "reason": "test", "audio": {"applied": False}}
-    monkeypatch.setattr(pipeline, "export_clip", fake_export)
+    def fake_create(folder, n, m):
+        exported.append({"cap_words": (m["text"]["captions"] or {}).get("words", [])})   # what it was told to draw
+        return {"stages": ["picture", "text", "music"], "music": None,
+                "framing": {"mode": "center", "reason": "test", "audio": {"applied": False}}}
+    monkeypatch.setattr(pipeline.render, "create", fake_create)
     monkeypatch.setattr(pipeline, "_pauses", lambda f: ([], speech_envelope(30), 30.0))
     pipeline._make_clips(job, dict(use_ai=False, music=False, count=1, min_len=5, max_len=20))
     return json.loads((folder / "clips.json").read_text())["clips"], exported

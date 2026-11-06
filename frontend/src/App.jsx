@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getJSON } from './api.js';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
-import Dashboard from './components/Dashboard.jsx';
+import AssistantHome from './components/AssistantHome.jsx';
 import CreateShortWizard from './components/CreateShortWizard.jsx';
 import ProcessingScreen from './components/ProcessingScreen.jsx';
 import Gallery from './components/Gallery.jsx';
@@ -112,7 +112,7 @@ export default function App() {
   async function handleSubmitJob(opts) {
     const {
       source: src, file, url, rights, language, captionScript,
-      minLen, maxLen, count, useAi, framing, musicOn, musicVol,
+      minLen, maxLen, count, useAi, framing, musicOn, musicVol, removePauses, suggestHook, editMode, styleId,
     } = opts;
 
     setSource(src);
@@ -136,6 +136,10 @@ export default function App() {
       form.append('framing', framing);
       form.append('music_on', musicOn);
       form.append('music_volume', musicVol);
+      form.append('remove_pauses', removePauses ?? true);
+      form.append('suggest_hook', suggestHook ?? true);
+      form.append('edit_mode', editMode || 'auto');
+      form.append('style_id', styleId || 'natural');
 
       const endpoint = src === 'file' ? '/api/upload' : '/api/import-url';
       const { job_id } = await getJSON(endpoint, { method: 'POST', body: form });
@@ -173,6 +177,26 @@ export default function App() {
     setBusy(true);
     setView('processing');
     watchJob(jobId);
+  }
+
+  // Open any project (from the assistant or the recent list): its videos, or its progress if still running
+  async function openProject(id) {
+    clearInterval(timer.current);
+    setJobId(id);
+    try { localStorage.setItem(SAVED_JOB, id); } catch { /* ignore */ }
+    try {
+      const s = await getJSON(`/api/jobs/${id}`);
+      setJobStatus(s);
+      if (s.status === 'done') {
+        await finishJob(id);
+      } else if (s.status === 'error') {
+        setView('processing');
+      } else {
+        setBusy(true);
+        setView('processing');
+        watchJob(id);
+      }
+    } catch { /* unknown project: stay where we are */ }
   }
 
   function openStudio(clip) {
@@ -220,17 +244,7 @@ export default function App() {
 
         {/* 1. Home / Dashboard */}
         {view === 'home' && (
-          <Dashboard
-            health={health}
-            musicCount={library.tracks?.length || 0}
-            lastJobStatus={jobStatus?.status}
-            jobId={jobId}
-            clips={clips}
-            onImport={(src, link) => { setCreateSource(src === 'url' ? 'url' : 'file'); setCreateUrl(link || ''); handleNavigate('create'); }}
-            onOpenSettings={() => handleNavigate('settings')}
-            onOpenClip={openStudio}
-            onResume={() => clips.length > 0 ? handleNavigate('gallery') : (jobStatus && setView('processing'))}
-          />
+          <AssistantHome health={health} onOpenProject={openProject} />
         )}
 
         {/* 2. Create Short Wizard */}

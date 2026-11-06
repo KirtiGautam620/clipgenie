@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app import jobs, music  # noqa: E402
+from app import checks, jobs, music  # noqa: E402
 
 
 @pytest.fixture
@@ -38,3 +38,15 @@ def make_clips_job(work: Path, job_id="abcdef0123", music_info=None, rights="own
 def music_info(license="CC0 / public domain", attribution="", warning=None):
     return {"track_id": "t1", "title": "Song", "volume": 0.6, "license": license,
             "attribution": attribution, "warning": warning}
+
+
+@pytest.fixture(autouse=True)
+def quick_checks(monkeypatch, request):
+    """The automatic video checks run three FFmpeg passes; only tests that are about them (marked
+    `real_checks`) need them. Everything else skips them to stay fast."""
+    if "real_checks" not in request.keywords:
+        monkeypatch.setattr(checks, "ENABLED", False)
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "real_checks: run the real automatic video checks (three FFmpeg passes)")

@@ -69,8 +69,11 @@ def parse_loudnorm(log: str) -> dict | None:
     return values if all(math.isfinite(v) for v in values.values()) else None   # "-inf" = silence
 
 
-def voice_filter(src: Path, start: float, duration: float) -> tuple[str | None, dict]:
-    """Return (filter chain for [0:a], report). Filter is None when the video has no audio."""
+def voice_filter(src: Path, start: float, duration: float,
+                 out_duration: float | None = None) -> tuple[str | None, dict]:
+    """Return (filter chain for [0:a], report). Filter is None when the video has no audio.
+    The sound is measured over `duration` of the source; `out_duration` (when parts of the clip are
+    removed first) is how long the finished sound is, so its end fade lands on its real end."""
     if not has_audio(src):
         return None, {"applied": False, "reason": "no audio"}
 
@@ -98,8 +101,9 @@ def voice_filter(src: Path, start: float, duration: float) -> tuple[str | None, 
         report["input_lufs"] = measured["input_i"]
     else:
         report["loudness"] = "skipped (audio too quiet to measure)"
-    fade_out = min(FADE_OUT, duration / 3)
+    length = out_duration if out_duration else duration
+    fade_out = min(FADE_OUT, length / 3)
     chain += ["aresample=48000",       # loudnorm works at a high rate internally
               f"afade=t=in:st=0:d={FADE_IN}",
-              f"afade=t=out:st={max(0.0, duration - fade_out):.3f}:d={fade_out:.3f}"]
+              f"afade=t=out:st={max(0.0, length - fade_out):.3f}:d={fade_out:.3f}"]
     return ",".join(chain), report

@@ -50,7 +50,7 @@ def test_old_job_clip_gets_a_manifest_with_todays_defaults():
     assert m["clip"] == {"start": 0.0, "end": 2.0}
     assert m["framing"]["mode"] == "crop"
     assert m["effects"] == {"zoom": 1.0, "pan": "none"}
-    assert m["text"] == {"mode": "captions", "captions": None, "headline": None}
+    assert m["text"] == {"mode": "captions", "captions": None, "headline": None, "hook": None}
     assert m["audio"]["music"] == {"track_id": "starter-emotional", "volume": 0.6}
 
 
@@ -74,7 +74,7 @@ def test_headline_clip():
 def test_words_of_an_untrusted_clip_never_enter_the_manifest():
     clip = new_clip(text={"mode": "pending", "verdict": "unusable", "reasons": [], "headline": None})
     m = manifest.validate(manifest.from_clip(clip))
-    assert m["text"] == {"mode": "pending", "captions": None, "headline": None}
+    assert m["text"] == {"mode": "pending", "captions": None, "headline": None, "hook": None}
     assert "hello" not in json.dumps(m)
 
 
@@ -97,7 +97,7 @@ def bad(**changes):
 
 
 @pytest.mark.parametrize("m, message", [
-    (bad(version=2), "Unsupported manifest version"),
+    (bad(version=9), "Unsupported manifest version"),
     (bad(clip__end=0.0), "after clip.start"),
     (bad(clip__start=-1), "between"),
     (bad(clip__start="x"), "must be a number"),
@@ -148,7 +148,7 @@ def test_a_clip_with_burned_in_captions_cannot_be_rendered_again():
 def test_default_render_args_equal_the_arguments_the_app_always_used():
     args = manifest.render_args(manifest.from_clip(LEGACY_CLIP))
     assert args == {"start": 0.0, "end": 2.0, "framing": "crop", "clean_audio": True,
-                    "effects": {"zoom": 1.0, "pan": "none"}}
+                    "effects": {"zoom": 1.0, "pan": "none"}, "segments": None}
 
 
 def _fixture_video(path, seconds=2.0):

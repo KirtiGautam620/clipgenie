@@ -8,21 +8,27 @@ from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, R
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app import captions, captionstyles, jobs, manifest, music, rights, textmode, ytdl
+from app import captions, captionstyles, jobs, manifest, music, projects, rights, styles, textmode, ytdl
 from app.llm import OLLAMA_MODEL
 from app.storyboard.api import router as storyboard_router
-from app.pipeline import (Busy, DEFAULTS, apply_manifest, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_music,
+from app.assistant.api import api as assistant_api
+from app.assistant import workflows as assistant_workflows
+from app.content.api import api as content_api
+from app.pipeline import (Busy, DEFAULTS, apply_manifest, apply_style, reset_to_ai, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_hook, set_clip_music,
                           set_clip_text)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     jobs.mark_interrupted()
+    assistant_workflows.mark_interrupted()
     yield
 
 
 app = FastAPI(title="ClipGenie", lifespan=lifespan)
 app.include_router(storyboard_router)       # the optional Storyboard tool: its own routes, nothing shared
+app.include_router(assistant_api)           # the creator assistant (app/assistant): its own routes
+app.include_router(content_api)             # publishing text and thumbnails of a clip (app/content)
 
 LANGUAGES = {"auto": None, "en": "en", "hi": "hi"}
 FRAMINGS = ("crop", "blur")
@@ -61,6 +67,13 @@ def _check_settings(min_len: float, max_len: float, count: int, framing: str) ->
         raise HTTPException(400, "framing must be crop or blur")
 
 
+def _check_edit(edit_mode: str, style_id: str) -> None:
+    if edit_mode not in ("auto", "assist", "custom"):
+        raise HTTPException(400, "edit_mode must be auto, assist or custom")
+    if edit_mode == "custom" and styles.get(style_id) is None:
+        raise HTTPException(400, "Please choose one of your editing styles")
+
+
 def _check_script(value: str) -> None:
     if value not in captionstyles.SCRIPTS:
         raise HTTPException(400, "caption_script must be original or hinglish")
@@ -85,6 +98,10 @@ async def upload(
     music_on: bool = Form(DEFAULTS["music"]),
     music_volume: float = Form(DEFAULTS["music_volume"]),
     caption_script: str = Form(DEFAULTS["caption_script"]),
+    remove_pauses: bool = Form(DEFAULTS["remove_pauses"]),
+    suggest_hook: bool = Form(DEFAULTS["suggest_hook"]),
+    edit_mode: str = Form(DEFAULTS["edit_mode"]),
+    style_id: str = Form(DEFAULTS["style_id"]),
 ):
     """One call does everything: transcribe, choose the best moments, edit the clips."""
     if language not in LANGUAGES:
@@ -92,6 +109,7 @@ async def upload(
     _check_rights(rights_declared)
     _check_settings(min_len, max_len, count, framing)
     _check_script(caption_script)
+    _check_edit(edit_mode, style_id)
     suffix = re.sub(r"[^a-z0-9]", "", (file.filename or "").rsplit(".", 1)[-1].lower())
     if suffix != "mp4":
         raise HTTPException(400, "Please upload an MP4 file")
@@ -103,7 +121,8 @@ async def upload(
 
     settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing,
                     music=music_on, music_volume=max(0.0, min(1.0, music_volume)),
-                    caption_script=caption_script)
+                    caption_script=caption_script, remove_pauses=remove_pauses, suggest_hook=suggest_hook,
+                    edit_mode=edit_mode, style_id=style_id)
     background.add_task(run_pipeline, job_id, LANGUAGES[language], settings)
     return {"job_id": job_id}
 
@@ -122,6 +141,10 @@ def import_url(
     music_on: bool = Form(DEFAULTS["music"]),
     music_volume: float = Form(DEFAULTS["music_volume"]),
     caption_script: str = Form(DEFAULTS["caption_script"]),
+    remove_pauses: bool = Form(DEFAULTS["remove_pauses"]),
+    suggest_hook: bool = Form(DEFAULTS["suggest_hook"]),
+    edit_mode: str = Form(DEFAULTS["edit_mode"]),
+    style_id: str = Form(DEFAULTS["style_id"]),
 ):
     """Import a YouTube video you own or have permission to use, then run the same job."""
     if language not in LANGUAGES:
@@ -132,6 +155,7 @@ def import_url(
                                  "permission, or it is public domain / licensed for reuse.")
     _check_settings(min_len, max_len, count, framing)
     _check_script(caption_script)
+    _check_edit(edit_mode, style_id)
     try:
         clean = ytdl.check_url(url)
     except ytdl.ImportError_ as e:
@@ -141,9 +165,17 @@ def import_url(
     rights.save_source(job_id, rights_declared, clean)
     settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing,
                     music=music_on, music_volume=max(0.0, min(1.0, music_volume)),
-                    caption_script=caption_script, rights=rights_declared)
+                    caption_script=caption_script, rights=rights_declared,
+                    remove_pauses=remove_pauses, suggest_hook=suggest_hook,
+                    edit_mode=edit_mode, style_id=style_id)
     background.add_task(run_pipeline, job_id, LANGUAGES[language], settings, clean)
     return {"job_id": job_id}
+
+
+@app.get("/api/projects")
+def list_projects():
+    """Every project (one per uploaded or imported video), newest first."""
+    return {"projects": projects.list_projects()}
 
 
 @app.get("/api/jobs/{job_id}")
@@ -158,15 +190,19 @@ def job_status(job_id: str):
 def remake_clips(job_id: str, background: BackgroundTasks,
                  min_len: float = DEFAULTS["min_len"], max_len: float = DEFAULTS["max_len"],
                  count: int = DEFAULTS["count"], use_ai: bool = DEFAULTS["use_ai"],
-                 framing: str = DEFAULTS["framing"], caption_script: str = DEFAULTS["caption_script"]):
+                 framing: str = DEFAULTS["framing"], caption_script: str = DEFAULTS["caption_script"],
+                 remove_pauses: bool = DEFAULTS["remove_pauses"], suggest_hook: bool = DEFAULTS["suggest_hook"],
+                 edit_mode: str = DEFAULTS["edit_mode"], style_id: str = DEFAULTS["style_id"]):
     """Make a fresh set of clips from an already-transcribed video."""
     status = jobs.get_status(job_id)
     if status is None or not (jobs.job_dir(job_id) / "transcript.json").exists():
         raise HTTPException(409, "This video has not been analysed yet")
     _check_settings(min_len, max_len, count, framing)
     _check_script(caption_script)
+    _check_edit(edit_mode, style_id)
     settings = dict(min_len=min_len, max_len=max_len, count=count, use_ai=use_ai, framing=framing,
-                    caption_script=caption_script)
+                    caption_script=caption_script, remove_pauses=remove_pauses, suggest_hook=suggest_hook,
+                    edit_mode=edit_mode, style_id=style_id)
     background.add_task(run_clips_only, job_id, settings)
     return {"started": True}
 
@@ -338,8 +374,119 @@ def get_clip_manifest(job_id: str, clip_id: int):
     """The clip's editing manifest: the one description of how it is made (see manifest.py).
     Built from the saved clip, so every existing job has one. Words of an untrusted clip are
     never included."""
-    clip = textmode.public(_clip(job_id, clip_id))
-    return manifest.validate(manifest.from_clip(clip))
+    clip = _clip(job_id, clip_id)
+    m = manifest.current(jobs.job_dir(job_id), clip)
+    if textmode.is_untrusted(clip):
+        m["text"]["captions"] = None
+    return m
+
+
+# ------------------------------------------------------------------ editing styles
+
+@app.get("/api/styles")
+def list_styles():
+    """The editing styles you can choose: built-in ones first, then the ones you saved."""
+    return {"styles": styles.all_styles(), "default": styles.DEFAULT_STYLE}
+
+
+class StyleIn(BaseModel):
+    name: str
+    description: str = ""
+    job_id: str
+    clip_id: int
+
+
+@app.post("/api/styles")
+def save_style(body: StyleIn):
+    """Save the way one finished video was edited as a style you can use again."""
+    clip = _clip(body.job_id, body.clip_id)
+    folder = jobs.job_dir(body.job_id)
+    m = manifest.current(folder, clip)
+    edit = clip.get("edit") or {}
+    hook = (clip.get("text") or {}).get("hook") or {}
+    try:
+        profile = styles.from_manifest(
+            m, body.name, body.description,
+            pauses=edit.get("pauses") or ("natural" if manifest.is_cut(m) else "off"),
+            hook_seconds=int((hook.get("style") or {}).get("seconds", 3)),
+            hook_preset=(hook.get("style") or {}).get("preset", captionstyles.DEFAULT_HEADLINE_PRESET))
+        return styles.save_user(profile)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/styles/{style_id}")
+def delete_style(style_id: str):
+    try:
+        styles.delete_user(style_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"deleted": style_id}
+
+
+class StyleChoice(BaseModel):
+    style_id: str
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/style")
+def change_clip_style(job_id: str, clip_id: int, body: StyleChoice):
+    """Make this video follow an editing style. Only the parts that change are remade; text you wrote stays.
+    A new version of the clip, so its checklist must be confirmed again."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, apply_style(job_id, clip_id, body.style_id))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/reset")
+def reset_clip(job_id: str, clip_id: int):
+    """Go back to the edit ClipGenie first made for this video."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, reset_to_ai(job_id, clip_id))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+class HookIn(BaseModel):
+    text: str | None = None
+    preset: str | None = None
+    style: dict = {}
+    approve: bool = False
+    remove: bool = False
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/hook")
+def change_clip_hook(job_id: str, clip_id: int, body: HookIn):
+    """Save a hook draft, approve it onto the video, or remove it. Nothing is drawn until the user
+    approves. An approved or removed hook is a new version, so the checklist must be confirmed again."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, set_clip_hook(job_id, clip_id, body.text, body.preset, body.style,
+                                                   body.approve, body.remove))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
 
 
 @app.put("/api/jobs/{job_id}/clips/{clip_id}/manifest")

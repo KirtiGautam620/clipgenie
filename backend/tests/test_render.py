@@ -94,8 +94,10 @@ def test_a_failed_render_leaves_the_clip_exactly_as_it_was(client, folders, monk
     monkeypatch.setattr(render, "apply_captions", boom)
     r = client.post(f"/api/jobs/{job}/clips/1/effects", json={"zoom": 1.4, "pan": "left"})
     assert r.status_code == 500
-    after = {p.name: p.read_bytes() for p in folder.iterdir() if p.is_file()}
+    log = (folder / "usage.jsonl").read_text()               # the usage log is append-only: it records the failure
+    after = {p.name: p.read_bytes() for p in folder.iterdir() if p.is_file() and p.name != "usage.jsonl"}
     assert after == before                                  # clip, base and clips.json untouched
+    assert '"ok": false' in log and '"kind": "render"' in log
     assert not (folder / ".render_1").exists()              # and no temporary files left behind
     assert not pipeline.heavy_job_lock.locked()
 
@@ -305,3 +307,59 @@ def test_fades_and_trim_survive_later_edits(client, folders):
     assert m["effects"]["zoom"] == 1.2 and m["text"]["captions"]["style"]["preset"] == "pill"
     assert abs(duration_of(folder / "clip_1.mp4") - 2.2) < 0.1
     assert luma_at(folder / "clip_1.mp4", 0.0) < 40                           # still fading in
+
+
+# ================================================================== creating a clip, and the saved manifest
+
+def test_creating_a_clip_from_its_manifest_gives_the_same_video_as_the_old_export(folders):
+    """Creation now goes through the manifest and render.py. It must make exactly what export_clip made."""
+    job, folder = make_job(folders[0], clip_entry())                 # made with export_clip
+    old_video = folder / "clip_1.mp4"
+    m = manifest.validate(manifest.from_clip(clip_entry()))
+    other = folders[0] / "second"
+    other.mkdir()
+    shutil.copyfile(folder / "source.mp4", other / "source.mp4")
+    result = render.create(other, 1, m)
+    assert result["stages"] == ["picture", "text", "music"]
+    assert frames(other / "clip_1.mp4") == frames(old_video)
+    assert (other / "clip_1_base.mp4").exists() and not (other / ".render_1").exists()
+
+
+def test_every_edit_saves_the_manifest_and_keeps_a_history(client, folders):
+    job, folder = make_job(folders[0], clip_entry())                 # an old-style clip: nothing saved yet
+    assert manifest.load(folder, 1) is None
+    assert client.post(f"/api/jobs/{job}/clips/1/effects", json={"zoom": 1.2, "pan": "none"}).status_code == 200
+    saved = manifest.load(folder, 1)
+    assert saved["effects"]["zoom"] == 1.2
+    assert client.post(f"/api/jobs/{job}/clips/1/effects", json={"zoom": 1.4, "pan": "left"}).status_code == 200
+    doc = json.loads(manifest.store_path(folder, 1).read_text())
+    assert doc["current"]["effects"] == {"zoom": 1.4, "pan": "left"}
+    assert [h["manifest"]["effects"]["zoom"] for h in doc["history"]] == [1.2]      # the one it replaced
+    assert client.get(f"/api/jobs/{job}/clips/1/manifest").json()["effects"]["zoom"] == 1.4
+
+
+def test_a_failed_edit_does_not_touch_the_saved_manifest(client, folders, monkeypatch):
+    job, folder = make_job(folders[0], clip_entry())
+    assert client.post(f"/api/jobs/{job}/clips/1/effects", json={"zoom": 1.2, "pan": "none"}).status_code == 200
+    before = manifest.store_path(folder, 1).read_text()
+    monkeypatch.setattr(render, "apply_captions", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert client.post(f"/api/jobs/{job}/clips/1/effects", json={"zoom": 1.5, "pan": "none"}).status_code == 500
+    assert manifest.store_path(folder, 1).read_text() == before
+
+
+def test_a_saved_manifest_never_gives_captions_to_an_untrusted_clip(folders):
+    folder = folders[0] / "j"
+    folder.mkdir()
+    clip = clip_entry(text={"mode": "pending", "verdict": "unusable", "reasons": [], "headline": None})
+    m = manifest.validate(manifest.from_clip(clip_entry()))          # a manifest that (wrongly) holds words
+    m["text"]["mode"] = "captions"
+    manifest.save(folder, 1, m)
+    assert manifest.current(folder, clip)["text"]["captions"] is None
+
+
+def test_an_unreadable_saved_manifest_falls_back_to_the_clip(folders):
+    folder = folders[0] / "j2"
+    folder.mkdir()
+    manifest.store_path(folder, 1).write_text("{ not json")
+    assert manifest.load(folder, 1) is None
+    assert manifest.current(folder, clip_entry())["effects"] == {"zoom": 1.0, "pan": "none"}

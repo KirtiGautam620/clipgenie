@@ -6,6 +6,15 @@ export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit
   const base = `/api/jobs/${jobId}/clips/${clip.id}`;
   const title = clip.title || `Clip ${clip.id}`;
   const needsDecision = !!clip.text?.needs_decision;
+  // the automatic checks of the finished video, in one quiet tag (details on hover)
+  const checks = clip.checks;
+  const checkTag = !checks || checks.status === 'unchecked' ? null
+    : checks.status === 'ok'
+      ? { label: 'Quality checked', className: 'cg-vc-tag--done', title: 'Size, length, sound and picture all look right.' }
+      : { label: checks.status === 'problems' ? 'Needs a look' : `${checks.issues.length} note${checks.issues.length === 1 ? '' : 's'}`,
+          className: checks.status === 'problems' ? 'cg-vc-tag--attention' : '',
+          title: checks.issues.map((i) => i.message).join('\n') };
+  const editTag = clip.edit?.mode === 'custom' ? clip.edit.style_name : clip.edit?.mode === 'assist' ? 'AI + Manual' : null;
   const tags = [];
   if (clip.mood && clip.mood !== 'other') tags.push(clip.mood);
   if (TEXT_TAGS[clip.text?.mode]) tags.push(TEXT_TAGS[clip.text.mode]);
@@ -42,6 +51,8 @@ export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit
         <ul className="cg-vc-tags">
           {needsDecision && <li className="cg-vc-tag cg-vc-tag--attention">Needs your choice</li>}
           {clip.confirmed && <li className="cg-vc-tag cg-vc-tag--done">Confirmed</li>}
+          {checkTag && <li className={`cg-vc-tag ${checkTag.className}`} title={checkTag.title}>{checkTag.label}</li>}
+          {editTag && <li className="cg-vc-tag">{editTag}</li>}
           {tags.map((t) => <li key={t} className="cg-vc-tag">{t}</li>)}
         </ul>
 

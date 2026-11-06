@@ -165,3 +165,64 @@ def refine(words: list[dict], silences: list[Silence], start: float, end: float,
             "start_snapped": start_snapped, "end_snapped": end_snapped,
             "edge_db": [_level(envelope, cut_start), _level(envelope, cut_end)],
             "clean_end": bool(last) and last[-1] in SENTENCE_END}
+
+
+# ---------------------------------------------------------------- tightening pauses inside a clip
+
+PAUSE_MIN = 0.8          # only pauses at least this long are shortened
+PAUSE_KEEP = 0.25        # ...and this much silence is kept on each side of the cut (a natural 0.5 s beat)
+PAUSE_EDGE = 0.4         # never touch a pause this close to the start or end of the clip
+PAUSE_WORD_INSIDE = 0.5  # a pause is left alone if a word has more than this share of its length inside the cut
+PAUSE_MIN_REMOVED = 0.25 # shortening a pause by less than this is not worth a cut
+PAUSE_MAX_FRACTION = 0.35  # never remove more than this share of a clip
+
+
+def _mostly_inside(word_start: float, word_end: float, lo: float, hi: float) -> bool:
+    """Does more than PAUSE_WORD_INSIDE of this word fall inside the stretch [lo, hi] to be removed?"""
+    word_end = max(word_end, word_start + 0.05)        # a zero-length word still counts as a word
+    length = word_end - word_start
+    inside = min(word_end, hi) - max(word_start, lo)
+    return inside > PAUSE_WORD_INSIDE * length
+
+
+def pause_segments(silences: list[Silence], words: list[dict], start: float, end: float,
+                   min_pause: float = PAUSE_MIN, keep: float = PAUSE_KEEP,
+                   max_fraction: float = PAUSE_MAX_FRACTION) -> list[tuple[float, float]]:
+    """The parts of video[start:end] to KEEP once long pauses are shortened.
+
+    Deterministic, no AI: a measured silence of PAUSE_MIN or more is cut down to a short beat, the
+    cut sitting in the middle of the silence (so it never lands on a word and never clicks). A pause
+    is left alone if it is near the clip's start or end, if a word sits MOSTLY inside the part that
+    would be removed, or if removing it would take the clip past PAUSE_MAX_FRACTION removed.
+
+    Why "mostly": the audio is measured, Whisper's word times are estimated and are often a few
+    tenths of a second early or late. A word whose edge just grazes the silence is a timing error
+    (the sound itself says it is quiet there); a word that lies mostly inside it means the "silence"
+    may be quiet speech, so the pause is kept.
+    Returns [(start, end), ...] in order; a single (start, end) when nothing is removed.
+    """
+    word_spans = [(w["start"], w["end"]) for w in words if w["end"] > start and w["start"] < end]
+    candidates = []
+    for s, e in silences:
+        lo, hi = s + keep, e - keep
+        if e - s < min_pause or hi - lo < PAUSE_MIN_REMOVED:
+            continue
+        if s < start + PAUSE_EDGE or e > end - PAUSE_EDGE:
+            continue
+        if any(_mostly_inside(ws, we, lo, hi) for ws, we in word_spans):
+            continue
+        candidates.append((lo, hi))
+
+    budget = (end - start) * max_fraction
+    chosen, removed = [], 0.0
+    for lo, hi in sorted(candidates, key=lambda c: c[0] - c[1]):      # longest cuts first
+        if removed + (hi - lo) <= budget:
+            chosen.append((lo, hi))
+            removed += hi - lo
+    chosen.sort()
+    kept, cursor = [], start
+    for lo, hi in chosen:
+        kept.append((cursor, lo))
+        cursor = hi
+    kept.append((cursor, end))
+    return [(round(a, 3), round(b, 3)) for a, b in kept]
