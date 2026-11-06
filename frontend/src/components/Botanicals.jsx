@@ -51,3 +51,93 @@ export function LeafTrio({ size = 56 }) {
     </svg>
   );
 }
+
+/**
+ * Friendly panda in several poses. Decoration only; hidden from screen readers.
+ * pose: 'happy' (default) | 'sleeping' | 'singing' | 'working' | 'worried' | 'waving'
+ */
+export function Panda({ width = 96, className = '', pose = 'happy' }) {
+  const ink = 'var(--cg-text-primary)';
+  const closedEyes = pose === 'sleeping' || pose === 'singing';
+
+  return (
+    <svg className={className} width={width} viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+      {/* ears + head */}
+      <circle cx="28" cy="30" r="13" fill={ink} />
+      <circle cx="92" cy="30" r="13" fill={ink} />
+      <ellipse cx="60" cy="64" rx="44" ry="38" fill="#FFFFFF" stroke="var(--cg-border-default)" strokeWidth="1.5" />
+
+      {/* eyes */}
+      {closedEyes ? (
+        <>
+          <path d="M33 60 Q41 68 49 60" stroke={ink} strokeWidth="2.6" fill="none" strokeLinecap="round" />
+          <path d="M71 60 Q79 68 87 60" stroke={ink} strokeWidth="2.6" fill="none" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <ellipse cx="41" cy="58" rx="11" ry="14" transform="rotate(-20 41 58)" fill={ink} />
+          <ellipse cx="79" cy="58" rx="11" ry="14" transform="rotate(20 79 58)" fill={ink} />
+          <circle cx="44" cy="55" r="3.2" fill="#FFFFFF" />
+          <circle cx="76" cy="55" r="3.2" fill="#FFFFFF" />
+        </>
+      )}
+      {pose === 'worried' && (
+        <>
+          <path d="M31 40 L45 46" stroke={ink} strokeWidth="2" strokeLinecap="round" />
+          <path d="M89 40 L75 46" stroke={ink} strokeWidth="2" strokeLinecap="round" />
+        </>
+      )}
+
+      {/* cheeks + nose */}
+      <ellipse cx="31" cy="76" rx="6" ry="4" fill="var(--cg-blush)" />
+      <ellipse cx="89" cy="76" rx="6" ry="4" fill="var(--cg-blush)" />
+      <ellipse cx="60" cy="72" rx="4.5" ry="3.2" fill={ink} />
+
+      {/* mouth */}
+      {pose === 'singing' ? (
+        <ellipse cx="60" cy="84" rx="5" ry="6" fill={ink} />
+      ) : pose === 'worried' ? (
+        <path d="M52 86 Q56 82 60 86 Q64 90 68 86" stroke={ink} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      ) : pose === 'sleeping' ? (
+        <path d="M56 82 Q60 84 64 82" stroke={ink} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      ) : (
+        <path d="M54 80 Q60 85 66 80" stroke={ink} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      )}
+
+      {/* pose extras */}
+      {pose === 'sleeping' && (
+        <g fill={ink} opacity="0.6" style={{ fontFamily: 'var(--cg-font-display)', fontWeight: 700 }}>
+          <text x="88" y="26" fontSize="11">z</text>
+          <text x="98" y="14" fontSize="14">Z</text>
+        </g>
+      )}
+      {pose === 'singing' && (
+        <g fill="var(--cg-forest)">
+          <circle cx="104" cy="40" r="3.2" />
+          <path d="M107 40 L107 22 Q112 26 114 32" stroke="var(--cg-forest)" strokeWidth="1.6" fill="none" />
+          <circle cx="16" cy="48" r="2.6" />
+          <path d="M18.6 48 L18.6 34" stroke="var(--cg-forest)" strokeWidth="1.4" fill="none" />
+        </g>
+      )}
+      {pose === 'working' && (
+        <g fill="var(--cg-peach-ink)">
+          <path d="M104 22 L105.3 25.7 L109 27 L105.3 28.3 L104 32 L102.7 28.3 L99 27 L102.7 25.7 Z" />
+          <path d="M18 30 L18.9 32.6 L21.5 33.5 L18.9 34.4 L18 37 L17.1 34.4 L14.5 33.5 L17.1 32.6 Z" opacity="0.8" />
+        </g>
+      )}
+      {pose === 'worried' && (
+        <path d="M90 42 Q94 48 94 51 A4 4 0 0 1 86 51 Q86 48 90 42 Z" fill="var(--cg-info)" />
+      )}
+      {pose === 'waving' && (
+        <>
+          <ellipse cx="104" cy="62" rx="9" ry="11" fill="#FFFFFF" stroke="var(--cg-border-default)" strokeWidth="1.5" />
+          <path d="M113 46 Q118 50 113 54" stroke={ink} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+          <path d="M117 42 Q124 50 117 58" stroke={ink} strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.6" />
+        </>
+      )}
+
+      {/* bamboo leaf */}
+      <path d={LEAF} transform="translate(86 100) rotate(-40) scale(0.7)" fill="var(--cg-sage)" />
+    </svg>
+  );
+}

@@ -3,7 +3,7 @@ import { getJSON } from '../api.js';
 import GalleryClipCard from './GalleryClipCard.jsx';
 import VideoPreviewModal from './VideoPreviewModal.jsx';
 import Icon from './Icon.jsx';
-import { LeafTrio } from './Botanicals.jsx';
+import { Panda } from './Botanicals.jsx';
 import './Gallery.css';
 
 const DEFAULTS = { minLen: 30, maxLen: 60, count: 5, useAi: true, framing: 'crop' };
@@ -190,7 +190,7 @@ export default function Gallery({
 
       {clips.length === 0 ? (
         <div className="cg-vg-empty">
-          <LeafTrio size={64} />
+          <Panda width={96} pose="sleeping" />
           <h2 className="cg-heading-sm">No videos were found</h2>
           <p className="cg-text-sm cg-text-secondary">
             Try regenerating with a shorter minimum length, or create a new video.

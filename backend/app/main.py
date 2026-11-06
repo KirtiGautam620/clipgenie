@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, R
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app import captions, captionstyles, jobs, manifest, music, projects, rights, styles, textmode, ytdl
+from app import captions, captionstyles, guard, jobs, manifest, music, projects, rights, styles, textmode, ytdl
 from app.llm import OLLAMA_MODEL
 from app.storyboard.api import router as storyboard_router
 from app.assistant.api import api as assistant_api
@@ -55,7 +55,8 @@ def _ollama_state() -> dict:
 def health():
     """Tells the page what is available, so it can warn about anything missing."""
     return {"status": "ok", "ffmpeg": shutil.which("ffmpeg") is not None,
-            "ollama": _ollama_state(), "music_tracks": len(music.list_tracks())}
+            "ollama": _ollama_state(), "music_tracks": len(music.list_tracks()),
+            "system": guard.status()}
 
 
 # ------------------------------------------------------------------ starting a job
@@ -77,6 +78,14 @@ def _check_edit(edit_mode: str, style_id: str) -> None:
 def _check_script(value: str) -> None:
     if value not in captionstyles.SCRIPTS:
         raise HTTPException(400, "caption_script must be original or hinglish")
+
+
+def _check_room() -> None:
+    """Refuse a new job when the Mac is out of disk space (see guard.py)."""
+    try:
+        guard.ensure_room()
+    except guard.Overloaded as e:
+        raise HTTPException(507, str(e))
 
 
 def _check_rights(value: str) -> None:
@@ -103,6 +112,7 @@ async def upload(
     edit_mode: str = Form(DEFAULTS["edit_mode"]),
     style_id: str = Form(DEFAULTS["style_id"]),
 ):
+    _check_room()
     """One call does everything: transcribe, choose the best moments, edit the clips."""
     if language not in LANGUAGES:
         raise HTTPException(400, "language must be auto, en or hi")
@@ -146,6 +156,7 @@ def import_url(
     edit_mode: str = Form(DEFAULTS["edit_mode"]),
     style_id: str = Form(DEFAULTS["style_id"]),
 ):
+    _check_room()
     """Import a YouTube video you own or have permission to use, then run the same job."""
     if language not in LANGUAGES:
         raise HTTPException(400, "language must be auto, en or hi")
@@ -193,6 +204,7 @@ def remake_clips(job_id: str, background: BackgroundTasks,
                  framing: str = DEFAULTS["framing"], caption_script: str = DEFAULTS["caption_script"],
                  remove_pauses: bool = DEFAULTS["remove_pauses"], suggest_hook: bool = DEFAULTS["suggest_hook"],
                  edit_mode: str = DEFAULTS["edit_mode"], style_id: str = DEFAULTS["style_id"]):
+    _check_room()
     """Make a fresh set of clips from an already-transcribed video."""
     status = jobs.get_status(job_id)
     if status is None or not (jobs.job_dir(job_id) / "transcript.json").exists():

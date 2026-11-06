@@ -12,7 +12,7 @@ export default function MusicView({ library, onLibraryChange }) {
             Local audio tracks with automated speech-ducking. Only licensed, copyright-safe audio is used.
           </p>
         </div>
-        <span className="cg-badge cg-badge--accent">
+        <span className="cg-badge cg-badge--accent cg-music-count">
           {library.tracks?.length || 0} Tracks Available
         </span>
       </div>

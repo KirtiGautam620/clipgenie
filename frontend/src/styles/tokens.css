@@ -123,6 +123,17 @@
   --cg-shadow-lg:        0 12px 32px rgba(27, 67, 51, 0.16);
   --cg-shadow-card:      0 1px 2px rgba(40, 93, 70, 0.05);
 
+  /* ── Pastel accents (cozy creative studio; decorative only) ── */
+  --cg-blush:            #F7E1E1;
+  --cg-blush-ink:        #8E4F57;
+  --cg-peach:            #FBE6D3;
+  --cg-peach-ink:        #8A5330;
+  --cg-lavender:         #E9E3F5;
+  --cg-lavender-ink:     #5B4D86;
+  --cg-shadow-cozy:      0 1px 2px rgba(40, 93, 70, 0.05), 0 8px 22px rgba(40, 93, 70, 0.08);
+  --cg-shadow-lift:      0 2px 4px rgba(40, 93, 70, 0.06), 0 14px 30px rgba(40, 93, 70, 0.12);
+  --cg-radius-2xl:       28px;
+
   /* ── Transitions ─────────────────────────────────────── */
   --cg-transition-fast:   120ms ease;
   --cg-transition-normal: 180ms ease;

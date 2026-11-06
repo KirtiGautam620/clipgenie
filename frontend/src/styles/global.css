@@ -669,3 +669,49 @@ input, select, textarea {
 .cg-text-error {
   color: var(--cg-error);
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   Cozy polish for shared buttons, inputs and cards (hover, focus, depth)
+   ═════════════════════════════════════════════════════════════════════ */
+.cg-btn { border-radius: var(--cg-radius-md); }
+.cg-btn--primary { box-shadow: 0 1px 2px rgba(27, 67, 51, 0.15); }
+.cg-btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(27, 67, 51, 0.18); }
+.cg-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.cg-btn:focus-visible { outline: 2px solid var(--cg-sage); outline-offset: 2px; }
+
+.cg-input { border-radius: var(--cg-radius-md); transition: border-color var(--cg-transition-fast), box-shadow var(--cg-transition-fast); }
+.cg-input:focus { box-shadow: 0 0 0 3px var(--cg-accent-muted); }
+
+.cg-card--interactive:hover { transform: translateY(-1px); box-shadow: var(--cg-shadow-md); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-btn, .cg-btn--primary:hover:not(:disabled), .cg-card--interactive:hover { transform: none; }
+}
+
+/* ── Pandas on pages: a gentle bob, off for reduced motion ── */
+.cg-page-panda { flex-shrink: 0; align-self: center; animation: cg-panda-bob 4.5s ease-in-out infinite; }
+@keyframes cg-panda-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-page-panda { animation: none; }
+}
+
+/* ── Panda pattern background (behind content, very faint) ── */
+.cg-app-main-pane { position: relative; isolation: isolate; }
+.cg-panda-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.cg-panda-spot { position: absolute; opacity: 0.22; line-height: 0; }
+.cg-panda-spot svg { display: block; }
+.cg-panda-heart {
+  position: absolute;
+  color: var(--cg-blush-ink);
+  opacity: 0.22;
+  line-height: 1;
+}

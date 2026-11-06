@@ -17,3 +17,22 @@
   max-width: 800px;
 }
 
+
+/* ── Cozy music library ─────────────────────────────────── */
+.cg-music-view-page { padding: 32px 36px 48px; gap: 20px; background: transparent; }
+.cg-music-view-header { padding: 4px 0 0; }
+.cg-music-view-header .cg-heading-lg { font-family: var(--cg-font-display); font-weight: var(--cg-weight-semibold); }
+.cg-music-view-header p { max-width: 560px; line-height: 1.55; }
+.cg-music-count { padding: 6px 14px; border-radius: var(--cg-radius-full); background: var(--cg-lavender); color: var(--cg-lavender-ink); border: none; }
+.cg-music-view-card {
+  max-width: 860px;
+  padding: 24px;
+  border-radius: var(--cg-radius-2xl);
+  box-shadow: var(--cg-shadow-cozy);
+  border-color: var(--cg-border-subtle);
+}
+@media (max-width: 819px) {
+  .cg-music-view-page { padding: 20px 16px 40px; }
+  .cg-music-view-card { padding: 16px; }
+  .cg-music-view-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+}

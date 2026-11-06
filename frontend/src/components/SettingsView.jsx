@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Panda } from './Botanicals.jsx';
 import './SettingsView.css';
 
 export default function SettingsView({ health, musicCount = 0 }) {
@@ -26,9 +27,46 @@ export default function SettingsView({ health, musicCount = 0 }) {
             System configuration, local AI models, and storage cache controls.
           </p>
         </div>
+        <Panda width={72} className="cg-page-panda" pose="working" />
       </div>
 
       <div className="cg-settings-container">
+        {/* 0. Mac protection: disk space and memory, so a video never overloads the Mac */}
+        {health?.system && (
+          <section className="cg-card cg-settings-card">
+            <h2 className="cg-heading-sm">Mac Protection</h2>
+            <p className="cg-text-xs cg-text-muted">
+              CocoGenie checks your Mac before it starts a video. It only reads these numbers and changes nothing.
+            </p>
+            <div className="cg-settings-item">
+              <div className="cg-settings-info">
+                <span className="cg-settings-label">Free disk space</span>
+                <span className="cg-text-xs cg-text-muted">{health.system.disk_free_gb} GB free</span>
+              </div>
+              <span className={`cg-badge ${health.system.disk_free_gb >= 15 ? 'cg-badge--success' : health.system.disk_free_gb >= 5 ? 'cg-badge--warning' : 'cg-badge--error'}`}>
+                {health.system.disk_free_gb >= 15 ? 'Plenty' : health.system.disk_free_gb >= 5 ? 'Getting low' : 'Too low'}
+              </span>
+            </div>
+            <div className="cg-settings-item">
+              <div className="cg-settings-info">
+                <span className="cg-settings-label">Memory</span>
+                <span className="cg-text-xs cg-text-muted">
+                  {health.system.memory_free_pct != null ? `${health.system.memory_free_pct}% free` : 'Not available'}
+                  {health.system.swap_used_mb != null && ` · swap in use ${Math.round(health.system.swap_used_mb / 1024 * 10) / 10} GB`}
+                </span>
+              </div>
+              <span className={`cg-badge ${health.system.messages.length === 0 ? 'cg-badge--success' : 'cg-badge--warning'}`}>
+                {health.system.messages.length === 0 ? 'Fine' : 'Busy'}
+              </span>
+            </div>
+            {health.system.messages.map((m) => (
+              <div key={m} className={`cg-alert ${health.system.level === 'block' ? 'cg-alert--error' : 'cg-alert--warn'}`} role="status">
+                <span>{m}</span>
+              </div>
+            ))}
+          </section>
+        )}
+
         {/* 1. Local AI Diagnostics */}
         <section className="cg-card cg-settings-card">
           <h2 className="cg-heading-sm">Local AI Engine Status</h2>

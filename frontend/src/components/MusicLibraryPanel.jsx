@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { getJSON } from '../api.js';
+import Icon from './Icon.jsx';
+import { Panda } from './Botanicals.jsx';
 import './MusicLibraryPanel.css';
 
 export default function MusicLibraryPanel({ library, onChanged }) {
@@ -46,14 +48,26 @@ export default function MusicLibraryPanel({ library, onChanged }) {
       </p>
 
       {/* Track list */}
+      <div className="cg-music-section-head">
+        <h2 className="cg-music-section-title">Your tracks</h2>
+        <span className="cg-text-xs cg-text-muted">{library.tracks?.length || 0} in this library</span>
+      </div>
+
       {library.tracks?.length === 0 && (
-        <p className="cg-text-sm cg-text-muted">No tracks yet. Add some below.</p>
+        <div className="cg-music-empty">
+          <Panda width={84} pose="singing" />
+          <p className="cg-music-empty-title">No tracks yet</p>
+          <p className="cg-text-sm cg-text-muted">
+            Add a song you made, bought, or that is free to use. Clips with music will use it.
+          </p>
+        </div>
       )}
       <div className="cg-music-panel-tracks">
         {library.tracks?.map((t) => (
           <div key={t.id} className="cg-music-panel-track">
+            <span className="cg-music-track-icon" aria-hidden="true"><Icon name="music" size={18} /></span>
             <div className="cg-music-panel-track-info">
-              <span className="cg-text-sm" style={{ fontWeight: 600 }}>{t.title}</span>
+              <span className="cg-music-track-title">{t.title}</span>
               <div className="cg-music-panel-track-meta">
                 <span className="cg-badge cg-badge--muted">{t.moods[0]}</span>
                 <span className="cg-text-xs cg-text-muted">{t.license_label}</span>
@@ -66,14 +80,14 @@ export default function MusicLibraryPanel({ library, onChanged }) {
               )}
             </div>
             <audio controls preload="none" src={`/api/music/${t.id}/preview`}
-              style={{ width: '100%', height: 32 }} aria-label={`Preview ${t.title}`} />
+              className="cg-music-track-audio" aria-label={`Preview ${t.title}`} />
           </div>
         ))}
       </div>
 
       {/* Add track */}
       <button
-        className="cg-btn cg-btn--ghost cg-btn--sm"
+        className="cg-btn cg-btn--secondary cg-btn--sm cg-music-add-toggle"
         onClick={() => setShowAdd(!showAdd)}
         style={{ alignSelf: 'flex-start' }}
       >

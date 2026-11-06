@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Icon from './Icon.jsx';
 import { getJSON } from '../api.js';
+import { Panda } from './Botanicals.jsx';
 import './CreateShortWizard.css';
 
 const RIGHTS_OPTIONS = [
@@ -99,6 +100,7 @@ export default function CreateShortWizard({ busy, onSubmit, onCancel, initialSou
               Choose where your video comes from and how it should be framed. CocoGenie does the rest.
             </p>
           </div>
+          <Panda width={64} className="cg-page-panda" pose="waving" />
           {onCancel && (
             <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={onCancel}>
               Cancel

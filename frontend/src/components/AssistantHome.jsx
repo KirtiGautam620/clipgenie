@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getJSON } from '../api.js';
 import Icon from './Icon.jsx';
 import { CopyEditor, ThumbnailMaker } from './ContentTools.jsx';
-import { Sprig } from './Botanicals.jsx';
+import { Panda, Sprig } from './Botanicals.jsx';
 import './AssistantHome.css';
 
 // Home: the creator assistant. You say what you want; it picks one of CocoGenie's real tools, shows a
@@ -272,10 +272,11 @@ function FollowWhileRunning({ id, onUpdate }) {
   return null;
 }
 
-export default function AssistantHome({ health, onOpenProject }) {
+export default function AssistantHome({ health, onOpenProject, onStartCreate }) {
   const [tools, setTools] = useState([]);
   const [styles, setStyles] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [conv, setConv] = useState(null);
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState(null);     // {job_id, filename} or {uploading: name}
@@ -289,7 +290,7 @@ export default function AssistantHome({ health, onOpenProject }) {
   useEffect(() => {
     getJSON('/api/assistant/tools').then((d) => setTools(d.tools)).catch(() => {});
     getJSON('/api/styles').then((d) => setStyles(d.styles)).catch(() => {});
-    getJSON('/api/projects').then((d) => setProjects(d.projects)).catch(() => {});
+    getJSON('/api/projects').then((d) => setProjects(d.projects)).catch(() => {}).finally(() => setProjectsLoaded(true));
     let saved = null;
     try { saved = localStorage.getItem(CONV_KEY); } catch { /* ignore */ }
     if (saved) getJSON(`/api/assistant/conversations/${saved}`).then(setConv).catch(() => {});
@@ -357,7 +358,7 @@ export default function AssistantHome({ health, onOpenProject }) {
           <p className="cg-dash-eyebrow">CocoGenie assistant</p>
           <h1 className="cg-heading-xl">What would you like to create today?</h1>
         </div>
-        <div className="cg-as-hero-art" aria-hidden="true"><Sprig width={110} tone="leaf" /></div>
+        <div className="cg-as-hero-art" aria-hidden="true"><Panda width={92} pose="waving" /><Sprig width={110} tone="leaf" /></div>
       </section>
 
       {serverDown && (
@@ -381,6 +382,33 @@ export default function AssistantHome({ health, onOpenProject }) {
           <div ref={endRef} />
         </section>
       )}
+
+      {health?.system?.messages?.length > 0 && (
+        <div className={`cg-alert ${health.system.level === 'block' ? 'cg-alert--error' : 'cg-alert--warn'}`} role="status">
+          <span>{health.system.messages[0]}</span>
+        </div>
+      )}
+
+      <section className="cg-as-paths" aria-label="Choose how to start">
+        <button type="button" className="cg-as-path cg-as-path--own" disabled={serverDown}
+          onClick={() => onStartCreate?.('file')}>
+          <span className="cg-as-path-icon"><Icon name="upload" size={20} /></span>
+          <span className="cg-as-path-body">
+            <span className="cg-as-path-title">Create Shorts from my videos</span>
+            <span className="cg-as-path-text">Upload an MP4 you made. CocoGenie finds the best moments and adds captions.</span>
+          </span>
+          <Icon name="arrow" size={16} />
+        </button>
+        <button type="button" className="cg-as-path cg-as-path--repurpose" disabled={serverDown}
+          onClick={() => onStartCreate?.('url')}>
+          <span className="cg-as-path-icon"><Icon name="link" size={20} /></span>
+          <span className="cg-as-path-body">
+            <span className="cg-as-path-title">Repurpose a video from another creator</span>
+            <span className="cg-as-path-text">Paste a YouTube link. You confirm you have permission to reuse it before any clips are made.</span>
+          </span>
+          <Icon name="arrow" size={16} />
+        </button>
+      </section>
 
       <form className="cg-as-composer" onSubmit={(e) => { e.preventDefault(); send(); }}>
         {attachment && (
@@ -417,6 +445,14 @@ export default function AssistantHome({ health, onOpenProject }) {
           </button>
         ))}
       </div>
+
+      {projectsLoaded && projects.length === 0 && (
+        <div className="cg-as-empty">
+          <Panda width={88} />
+          <p className="cg-as-empty-title">Your finished Shorts will appear here</p>
+          <p className="cg-as-empty-text">Start with one of the two paths above. It takes a few minutes.</p>
+        </div>
+      )}
 
       {projects.length > 0 && (
         <section>

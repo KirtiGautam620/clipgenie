@@ -8,6 +8,7 @@ import ProcessingScreen from './components/ProcessingScreen.jsx';
 import Gallery from './components/Gallery.jsx';
 import StudioEditor from './components/StudioEditor.jsx';
 import MusicView from './components/MusicView.jsx';
+import PandaBackdrop from './components/PandaBackdrop.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import ExportStudioModal from './components/ExportStudioModal.jsx';
 import './styles/global.css';
@@ -161,6 +162,12 @@ export default function App() {
   }
 
   // ── Navigation Handlers ────────────────────────────────
+  // Home's two creation paths: 'file' = my own video, 'url' = a link to another creator's video
+  function startCreate(source) {
+    setCreateSource(source);
+    setView('create');
+  }
+
   function handleNavigate(target) {
     if (target === 'gallery' && clips.length === 0 && busy) {
       setView('processing');
@@ -232,6 +239,7 @@ export default function App() {
 
       {/* ── Main Application Content Pane ────────────────────── */}
       <div className="cg-app-main-pane">
+        <PandaBackdrop />
         {/* Header Bar (shown on standard views) */}
         {view !== 'studio' && (
           <Header
@@ -244,7 +252,7 @@ export default function App() {
 
         {/* 1. Home / Dashboard */}
         {view === 'home' && (
-          <AssistantHome health={health} onOpenProject={openProject} />
+          <AssistantHome health={health} onOpenProject={openProject} onStartCreate={startCreate} />
         )}
 
         {/* 2. Create Short Wizard */}
