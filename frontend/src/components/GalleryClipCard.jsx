@@ -1,11 +1,37 @@
+import { useState } from 'react';
+import { getJSON } from '../api.js';
 import './GalleryClipCard.css';
 
 const TEXT_TAGS = { headline: 'Headline', none: 'No text' };
 
-export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit, onExport }) {
+export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit, onExport, onUpdated }) {
   const base = `/api/jobs/${jobId}/clips/${clip.id}`;
   const title = clip.title || `Clip ${clip.id}`;
   const needsDecision = !!clip.text?.needs_decision;
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState('');
+  // a suggested heading (hook) that is waiting to be put on the video
+  const hook = clip.text?.hook;
+  const hookWaiting = !!hook && !hook.approved && !!hook.text;
+
+  // One click: approve the suggested heading. The server remakes the video, so the checklist
+  // must be confirmed again (the returned clip says so).
+  async function addHeading() {
+    setAdding(true);
+    setAddError('');
+    try {
+      const updated = await getJSON(`${base}/hook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approve: true }),
+      });
+      if (onUpdated) onUpdated(updated);
+    } catch (e) {
+      setAddError(e.message);
+    } finally {
+      setAdding(false);
+    }
+  }
   // the automatic checks of the finished video, in one quiet tag (details on hover)
   const checks = clip.checks;
   const checkTag = !checks || checks.status === 'unchecked' ? null
@@ -55,6 +81,17 @@ export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit
           {editTag && <li className="cg-vc-tag">{editTag}</li>}
           {tags.map((t) => <li key={t} className="cg-vc-tag">{t}</li>)}
         </ul>
+
+        {hookWaiting && (
+          <div className="cg-vc-heading">
+            <p className="cg-vc-desc">Suggested heading: “{hook.text}”</p>
+            <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={addHeading}
+              disabled={adding}>
+              {adding ? 'Adding…' : 'Add heading to video'}
+            </button>
+            {addError && <p className="cg-text-xs cg-text-error">{addError}</p>}
+          </div>
+        )}
 
         {source && (
           <p className="cg-vc-source" title={source.host || undefined}>{source.label}</p>

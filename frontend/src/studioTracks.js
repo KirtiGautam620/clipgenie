@@ -8,8 +8,35 @@ const HOLD = 0.25;
 // ── Time helpers: the finished video is the kept parts of the clip joined together ───────────────
 // man.segments are in source seconds; a "finished video" time is counted from 0 over the kept parts.
 
-export function outputLength(man) {
+/** The dissolve length in seconds, or 0 when the clip has no dissolve between its cuts. */
+export function dissolveOf(man) {
+  return man.transition?.type === 'dissolve' && man.segments.length > 1 ? man.transition.seconds : 0;
+}
+
+/** The kept parts added up (what was not cut out), ignoring any dissolve overlap. */
+export function keptSeconds(man) {
   return man.segments.reduce((total, s) => total + (s.end - s.start), 0);
+}
+
+/** Finished-video time where each kept part starts. A dissolve makes the next part start a little early. */
+function partStarts(man) {
+  const d = dissolveOf(man);
+  const starts = [];
+  let t = 0;
+  man.segments.forEach((s, i) => {
+    starts.push(t);
+    t += (s.end - s.start) - (i < man.segments.length - 1 ? d : 0);
+  });
+  return starts;
+}
+
+/** The clip's speed (1 = as recorded). The finished video is the kept parts, sped up by this. */
+export function speedOf(man) {
+  return man.speed && man.speed > 0 ? man.speed : 1;
+}
+
+export function outputLength(man) {
+  return (keptSeconds(man) - dissolveOf(man) * Math.max(0, man.segments.length - 1)) / speedOf(man);
 }
 
 export function isCut(man) {
@@ -18,23 +45,74 @@ export function isCut(man) {
 
 /** A source time -> finished-video time, or null when that moment was cut out. */
 export function sourceToOut(man, abs) {
-  let done = 0;
-  for (const s of man.segments) {
-    if (abs >= s.start - 0.001 && abs <= s.end + 0.001) return done + Math.max(0, abs - s.start);
-    done += s.end - s.start;
+  const starts = partStarts(man);
+  for (let i = 0; i < man.segments.length; i++) {
+    const s = man.segments[i];
+    if (abs >= s.start - 0.001 && abs <= s.end + 0.001) return (starts[i] + Math.max(0, abs - s.start)) / speedOf(man);
   }
   return null;
 }
 
 /** A finished-video time -> source time. */
 export function outToSource(man, t) {
-  let done = 0;
-  for (const s of man.segments) {
-    const len = s.end - s.start;
-    if (t <= done + len + 1e-9) return s.start + Math.max(0, t - done);
-    done += len;
+  const starts = partStarts(man);
+  const u = t * speedOf(man);                // finished-video seconds -> seconds in the kept parts
+  for (let i = 0; i < man.segments.length; i++) {
+    const s = man.segments[i];
+    const nextStart = i < man.segments.length - 1 ? starts[i + 1] : Infinity;
+    if (u < nextStart - 1e-9 || i === man.segments.length - 1) return s.start + Math.max(0, u - starts[i]);
   }
   return man.segments[man.segments.length - 1].end;
+}
+
+/**
+ * Remove the finished-video range [fromOut, toOut] from the kept parts. Returns the new list of parts
+ * in source seconds. The range is read against `man`'s current parts, so cuts can be stacked.
+ */
+export function cutSegments(man, fromOut, toOut) {
+  const a = outToSource(man, fromOut);
+  const b = outToSource(man, toOut);
+  const next = [];
+  for (const s of man.segments) {
+    if (b <= s.start || a >= s.end) { next.push({ start: s.start, end: s.end }); continue; }
+    if (a > s.start) next.push({ start: s.start, end: a });
+    if (b < s.end) next.push({ start: b, end: s.end });
+  }
+  return next
+    .filter((s) => s.end - s.start > 0.05)
+    .map((s) => ({ start: Math.round(s.start * 1000) / 1000, end: Math.round(s.end * 1000) / 1000 }));
+}
+
+/**
+ * The removed stretches between the kept parts, in source seconds. Each one can be put back.
+ * Returns [{ index, start, end, length }] where index is the part before the gap.
+ */
+export function removedGaps(parts) {
+  const gaps = [];
+  for (let i = 0; i < parts.length - 1; i++) {
+    const start = parts[i].end;
+    const end = parts[i + 1].start;
+    // only a part that comes later in the clip, after this one, leaves a gap; a moved part does not
+    if (end - start > 0.05) gaps.push({ index: i, start, end, length: Math.round((end - start) * 100) / 100 });
+  }
+  return gaps;
+}
+
+/** Move a kept part one place earlier (dir = -1) or later (dir = 1) in the play order. */
+export function movePart(parts, index, dir) {
+  const to = index + dir;
+  if (index < 0 || to < 0 || index >= parts.length || to >= parts.length) return parts.map((s) => ({ ...s }));
+  const next = parts.map((s) => ({ ...s }));
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
+}
+
+/** Put one removed stretch back: the parts on either side of it join into one. */
+export function restoreGap(parts, index) {
+  if (index < 0 || index >= parts.length - 1) return parts.map((s) => ({ ...s }));
+  if (parts[index + 1].start < parts[index].end) return parts.map((s) => ({ ...s }));   // moved parts: nothing to join
+  const joined = { start: parts[index].start, end: parts[index + 1].end };
+  return [...parts.slice(0, index).map((s) => ({ ...s })), joined, ...parts.slice(index + 2).map((s) => ({ ...s }))];
 }
 
 /** Caption words (stored from the clip's start) in finished-video time; words that were cut are dropped. */

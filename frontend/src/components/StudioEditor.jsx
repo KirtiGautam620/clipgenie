@@ -4,7 +4,7 @@ import EditDecisionsPanel from './EditDecisionsPanel.jsx';
 import CaptionsStylePanel from './CaptionsStylePanel.jsx';
 import ExportStudioModal from './ExportStudioModal.jsx';
 import { getJSON } from '../api.js';
-import { buildTracks, FRAMING_LABELS, outputLength, outToSource, isCut } from '../studioTracks.js';
+import { buildTracks, FRAMING_LABELS, keptSeconds, outputLength, outToSource, isCut, cutSegments, removedGaps, restoreGap, movePart } from '../studioTracks.js';
 import './StudioEditor.css';
 
 // Everything in this screen does what it says: what is shown comes from the clip's own data, and
@@ -134,6 +134,13 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
   const [fadeIn, setFadeIn] = useState(0);
   const [fadeOut, setFadeOut] = useState(0);
   const [fadeSound, setFadeSound] = useState(true);
+  const [dissolveOn, setDissolveOn] = useState(false);     // soften the cuts where pauses were removed
+  const [dissolveSecs, setDissolveSecs] = useState(0.2);
+  const [speed, setSpeed] = useState(1);             // the whole clip faster or slower (1 = as recorded)
+  const [parts, setParts] = useState(null);          // the kept parts, with any cut-outs applied (source seconds)
+  const [cutFrom, setCutFrom] = useState(0);         // finished-video seconds
+  const [cutTo, setCutTo] = useState(0);
+  const [cutError, setCutError] = useState('');
   const [trimStart, setTrimStart] = useState(0);   // seconds from the start of the finished video as it is now
   const [trimEnd, setTrimEnd] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -151,6 +158,13 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
     setFadeIn(man.fades.in);
     setFadeOut(man.fades.out);
     setFadeSound(man.audio.fade_with_video);
+    setDissolveOn(man.transition?.type === 'dissolve');
+    setDissolveSecs(man.transition?.seconds ?? 0.2);
+    setSpeed(man.speed || 1);
+    setParts(man.segments.map((s) => ({ ...s })));
+    setCutFrom(0);
+    setCutTo(0);
+    setCutError('');
     setTrimStart(0);
     setTrimEnd(round1(outputLength(man)));
   }, [man]);
@@ -164,11 +178,20 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
     );
   }
 
+  const hasCuts = man.segments.length > 1;
+  const currentParts = parts || man.segments;
+  const cutsPending = JSON.stringify(currentParts) !== JSON.stringify(man.segments);
+  const partsMoved = currentParts.some((p, i) => i > 0 && p.start < currentParts[i - 1].end - 0.001);
+  const keptAfterCuts = round1(outputLength({ segments: currentParts, transition: man.transition }));
   const trimmed = trimStart > 0.04 || trimEnd < round1(length) - 0.04;
   const changed = trimmed
     || Math.abs(man.effects.zoom - zoom) > 0.001 || man.effects.pan !== pan
     || Math.abs(man.fades.in - fadeIn) > 0.001 || Math.abs(man.fades.out - fadeOut) > 0.001
-    || man.audio.fade_with_video !== fadeSound;
+    || man.audio.fade_with_video !== fadeSound
+    || dissolveOn !== (man.transition?.type === 'dissolve')
+    || (dissolveOn && Math.abs((man.transition?.seconds ?? 0.2) - dissolveSecs) > 0.001)
+    || cutsPending
+    || Math.abs((man.speed || 1) - speed) > 0.001;
   const fadesToLong = fadeIn + fadeOut > (trimEnd - trimStart);
   const kept = round1(trimEnd - trimStart);
 
@@ -180,6 +203,9 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
       doc.effects = { zoom, pan };
       doc.fades = { in: fadeIn, out: fadeOut };
       doc.audio.fade_with_video = fadeSound;
+      doc.transition = { type: dissolveOn ? 'dissolve' : 'none', seconds: dissolveSecs };
+      if (cutsPending) doc.segments = currentParts;
+      doc.speed = speed;
       if (trimmed) {                           // sliders are in the finished video's time: back to source seconds
         doc.clip = { start: round1(outToSource(man, trimStart)), end: round1(outToSource(man, trimEnd)) };
       }                                        // untouched: the exact original range goes back
@@ -219,6 +245,12 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
         </select>
       </label>
 
+      <label className="cg-field">
+        <span className="cg-text-sm">Speed: {speed.toFixed(2)}×</span>
+        <input className="cg-range" type="range" min="0.8" max="1.25" step="0.05" value={speed} disabled={busy}
+          onChange={(e) => setSpeed(parseFloat(e.target.value))} />
+      </label>
+
       <h4 className="cg-panel-subhead">Fades</h4>
       <label className="cg-field">
         <span className="cg-text-sm">Fade in: {fadeIn.toFixed(1)}s</span>
@@ -236,16 +268,101 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
         <span className="cg-toggle-label">Fade the sound with the picture</span>
       </label>
 
+      {hasCuts && (
+        <>
+          <h4 className="cg-panel-subhead">Between cuts</h4>
+          <label className="cg-toggle">
+            <input type="checkbox" checked={dissolveOn} disabled={busy || partsMoved} onChange={(e) => setDissolveOn(e.target.checked)} />
+            <span className="cg-toggle-track" />
+            <span className="cg-toggle-label">Soften the cuts where pauses were removed</span>
+          </label>
+          {dissolveOn && (
+            <label className="cg-field">
+              <span className="cg-text-sm">Dissolve: {dissolveSecs.toFixed(1)}s</span>
+              <input className="cg-range" type="range" min="0.1" max="0.6" step="0.1" value={dissolveSecs} disabled={busy}
+                onChange={(e) => setDissolveSecs(parseFloat(e.target.value))} />
+            </label>
+          )}
+        </>
+      )}
+
+      <h4 className="cg-panel-subhead">Cut out a part</h4>
+      <p className="cg-text-xs cg-text-muted">
+        Remove a stretch from the middle, in the finished video's seconds. Cuts apply when you press Apply.
+      </p>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+        <label className="cg-field" style={{ flex: 1 }}>
+          <span className="cg-text-sm">From (s)</span>
+          <input type="number" min="0" step="0.1" className="cg-input" value={cutFrom} disabled={busy}
+            onChange={(e) => setCutFrom(parseFloat(e.target.value) || 0)} />
+        </label>
+        <label className="cg-field" style={{ flex: 1 }}>
+          <span className="cg-text-sm">To (s)</span>
+          <input type="number" min="0" step="0.1" className="cg-input" value={cutTo} disabled={busy}
+            onChange={(e) => setCutTo(parseFloat(e.target.value) || 0)} />
+        </label>
+        <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" disabled={busy}
+          onClick={() => {
+            if (!(cutTo > cutFrom)) { setCutError('The end must be after the start.'); return; }
+            const next = cutSegments({ segments: currentParts, transition: man.transition }, cutFrom, cutTo);
+            if (!next.length || keptSeconds({ segments: next }) < 1) {
+              setCutError('A video must keep at least 1 second.'); return;
+            }
+            setParts(next);
+            setCutError('');
+          }}>Cut out</button>
+      </div>
+      {cutError && <p className="cg-text-xs cg-text-error">{cutError}</p>}
+      {cutsPending && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span className="cg-text-xs">{keptAfterCuts}s kept after cuts</span>
+          <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={busy}
+            onClick={() => { setParts(man.segments.map((s) => ({ ...s }))); setCutError(''); }}>Undo cuts</button>
+        </div>
+      )}
+
+      {currentParts.length > 1 && (
+        <>
+          <h4 className="cg-panel-subhead">Play order</h4>
+          <p className="cg-text-xs cg-text-muted">Move a part earlier or later. Applies when you press Apply.</p>
+          {currentParts.map((p, i) => (
+            <div key={`${p.start}-${p.end}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span className="cg-text-sm" style={{ flex: 1 }}>
+                {i + 1}. {p.start.toFixed(1)}s–{p.end.toFixed(1)}s
+              </span>
+              <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={busy || i === 0}
+                aria-label={`Move part ${i + 1} earlier`} onClick={() => { setParts(movePart(currentParts, i, -1)); setCutError(''); }}>↑</button>
+              <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={busy || i === currentParts.length - 1}
+                aria-label={`Move part ${i + 1} later`} onClick={() => { setParts(movePart(currentParts, i, 1)); setCutError(''); }}>↓</button>
+            </div>
+          ))}
+        </>
+      )}
+
+      {removedGaps(currentParts).length > 0 && (
+        <>
+          <h4 className="cg-panel-subhead">Put back a removed part</h4>
+          <p className="cg-text-xs cg-text-muted">Bring back a pause or cut stretch. Applies when you press Apply.</p>
+          {removedGaps(currentParts).map((g) => (
+            <div key={g.start} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span className="cg-text-sm" style={{ flex: 1 }}>Removed {g.length.toFixed(2)}s</span>
+              <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" disabled={busy}
+                onClick={() => { setParts(restoreGap(currentParts, g.index)); setCutError(''); }}>Put back</button>
+            </div>
+          ))}
+        </>
+      )}
+
       <h4 className="cg-panel-subhead">Trim</h4>
       <label className="cg-field">
         <span className="cg-text-sm">Start at {trimStart.toFixed(1)}s</span>
         <input className="cg-range" type="range" min="0" max={Math.max(0, round1(length) - 1)} step="0.1"
-          value={trimStart} disabled={busy}
+          value={trimStart} disabled={busy || cutsPending}
           onChange={(e) => { const v = parseFloat(e.target.value); setTrimStart(v); if (trimEnd - v < 1) setTrimEnd(round1(v + 1)); onScrub(v); }} />
       </label>
       <label className="cg-field">
         <span className="cg-text-sm">End at {trimEnd.toFixed(1)}s</span>
-        <input className="cg-range" type="range" min="1" max={round1(length)} step="0.1" value={trimEnd} disabled={busy}
+        <input className="cg-range" type="range" min="1" max={round1(length)} step="0.1" value={trimEnd} disabled={busy || cutsPending}
           onChange={(e) => { const v = parseFloat(e.target.value); setTrimEnd(v); if (v - trimStart < 1) setTrimStart(round1(Math.max(0, v - 1))); onScrub(Math.max(0, v - 0.05)); }} />
       </label>
       <p className="cg-text-xs cg-text-muted">
@@ -504,7 +621,7 @@ export default function StudioEditor({
               <dd>{describeZoom(clip.effects)}</dd>
               <dt>Pauses</dt>
               <dd>{man && isCut(man)
-                ? `${round1(man.clip.end - man.clip.start - outputLength(man))}s of long pauses removed`
+                ? `${round1(man.clip.end - man.clip.start - keptSeconds(man))}s of long pauses removed`
                 : 'As spoken'}</dd>
               <dt>Fades</dt>
               <dd>{describeFades(clip.fades)}</dd>
@@ -517,7 +634,6 @@ export default function StudioEditor({
             </dl>
             <p className="cg-text-xs cg-text-muted">Coming to the editor:</p>
             <ul className="cg-soon-list">
-              <li>Transitions <span>Soon</span></li>
               <li>AI visuals <span>Soon</span></li>
               <li>Editing assistant <span>Soon</span></li>
             </ul>

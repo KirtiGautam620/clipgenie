@@ -373,7 +373,7 @@ def apply_manifest(job_id: str, clip_id: int, document: dict) -> dict:
             if m["text"]["captions"] is not None:      # captions follow the new start
                 m["text"]["captions"] = manifest.trim_captions(
                     m["text"]["captions"], after["start"] - before["start"], after["end"] - after["start"])
-        for key in ("clip", "segments", "framing", "effects", "fades", "transitions", "audio"):
+        for key in ("clip", "segments", "framing", "effects", "fades", "transitions", "transition", "speed", "audio"):
             m[key] = copy.deepcopy(new[key])
     return _apply(job_id, clip_id, change)
 
@@ -484,6 +484,7 @@ def _make_clips(job_id: str, settings: dict) -> None:
         if item["segments"]:                 # long pauses were shortened: remember which parts are kept
             entry["segments"] = [{"start": a, "end": b} for a, b in item["segments"]]
             entry["duration"] = round(sum(b - a for a, b in item["segments"]), 1)
+            entry["transition"] = manifest.new_clip_transition(entry["segments"])
         if item["text"]["mode"] == "captions":
             entry["captions"] = {"style": style.as_dict(), "words": item["cap_words"]}
             plan.attach_hook(entry["text"], item["hook"], edit_style["hook"]["seconds"], edit_style["hook"]["preset"])

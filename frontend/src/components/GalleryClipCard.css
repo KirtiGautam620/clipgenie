@@ -27,6 +27,16 @@
   border-radius: var(--cg-radius-md);
 }
 
+.cg-vc-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cg-space-2);
+}
+.cg-vc-heading .cg-vc-desc {
+  margin: 0;
+}
+
 .cg-vc-thumb {
   position: relative;
   display: block;

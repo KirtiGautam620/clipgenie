@@ -189,9 +189,59 @@ def _select(spans: list[tuple[float, float]]) -> str:
     return "+".join(f"between(t\\,{a:.3f}\\,{b:.3f})" for a, b in spans)
 
 
+def _dissolve_video(spans: list[tuple[float, float]], seconds: float, lens: list[float]) -> str:
+    """Filter chain: cut each kept piece out of [vf] and dissolve neighbours into each other. Ends at [vs]."""
+    n = len(spans)
+    parts = [f"[vf]fps=25,split={n}" + "".join(f"[p{i}]" for i in range(n))]
+    for i, (a, b) in enumerate(spans):
+        parts.append(f"[p{i}]trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS[q{i}]")
+    cur, acc = "[q0]", lens[0]
+    for i in range(1, n):
+        out = "[vs]" if i == n - 1 else f"[x{i}]"
+        # xfade starts the dissolve `seconds` before the end of what it has so far
+        parts.append(f"{cur}[q{i}]xfade=transition=fade:duration={seconds:.3f}:offset={acc - seconds:.3f}{out}")
+        cur, acc = out, acc + lens[i] - seconds
+    return ";".join(parts)
+
+
+def _concat_video(spans: list[tuple[float, float]]) -> str:
+    """Filter chain: the kept pieces in the order given (they may not be in time order). Ends at [vs]."""
+    n = len(spans)
+    parts = [f"[vf]fps=25,split={n}" + "".join(f"[p{i}]" for i in range(n))]
+    for i, (a, b) in enumerate(spans):
+        parts.append(f"[p{i}]trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS[q{i}]")
+    parts.append("".join(f"[q{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[vs]")
+    return ";".join(parts)
+
+
+def _concat_audio(spans: list[tuple[float, float]]) -> str:
+    """Audio chain matching _concat_video. Ends at [as]."""
+    n = len(spans)
+    parts = [f"[0:a]asplit={n}" + "".join(f"[ap{i}]" for i in range(n))]
+    for i, (a, b) in enumerate(spans):
+        parts.append(f"[ap{i}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[aq{i}]")
+    parts.append("".join(f"[aq{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1[as]")
+    return ";".join(parts)
+
+
+def _dissolve_audio(spans: list[tuple[float, float]], seconds: float) -> str:
+    """Audio chain matching _dissolve_video: the same pieces, cross-faded the same amount. Ends at [as]."""
+    n = len(spans)
+    parts = [f"[0:a]asplit={n}" + "".join(f"[ap{i}]" for i in range(n))]
+    for i, (a, b) in enumerate(spans):
+        parts.append(f"[ap{i}]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[aq{i}]")
+    cur = "[aq0]"
+    for i in range(1, n):
+        out = "[as]" if i == n - 1 else f"[ax{i}]"
+        parts.append(f"{cur}[aq{i}]acrossfade=d={seconds:.3f}:c1=tri:c2=tri{out}")
+        cur = out
+    return ";".join(parts)
+
+
 def render_base(video: Path, start: float, end: float, base: Path, framing: str = "crop",
                 clean_audio: bool = True, effects: dict | None = None,
-                segments: list[tuple[float, float]] | None = None) -> dict:
+                segments: list[tuple[float, float]] | None = None, dissolve: float | None = None,
+                speed: float = 1.0) -> dict:
     """Stage 1 alone: picture (framed, with the optional zoom/pan effect) + voice, no captions.
     `segments` = the (start, end) parts of video[start:end] to keep, in source seconds; the gaps
     between them (pauses) are removed. None keeps everything.
@@ -205,35 +255,71 @@ def render_base(video: Path, start: float, end: float, base: Path, framing: str 
             framing = "blur"
 
     spans = [(a - start, b - start) for a, b in segments] if segments else None
-    out_duration = sum(b - a for a, b in spans) if spans else duration
+    use_dissolve = bool(spans and dissolve and len(spans) > 1)
+    reordered = bool(spans and any(spans[i + 1][0] < spans[i][1] - 0.001 for i in range(len(spans) - 1)))
+    if use_dissolve:
+        lens = [b - a for a, b in spans]
+        out_duration = sum(lens) - dissolve * (len(spans) - 1)   # each dissolve shares time with its neighbours
+    else:
+        out_duration = sum(b - a for a, b in spans) if spans else duration
     effect = zoom_filter(effects, out_duration, OUT_W, OUT_H)
-
-    # the picture: framed first (the speaker tracking works in the clip's own time), then the
-    # removed parts are dropped, then zoom/pan runs over the finished timeline
-    steps = []
-    if spans:
-        steps.append(f"fps=25,select={_select(spans)},setpts=N/(25*TB)")
-    if effect:
-        steps.append(f"{effect},setsar=1")
-    graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]" if steps else "[v]")
-    if steps:
-        graph += f";[vf]{','.join(steps)}[v]"
 
     audio_report = {"applied": False}
     voice = None
     if clean_audio:
         voice, audio_report = voice_filter(video, start, duration, out_duration)
-    pieces = []
-    if spans and (voice or has_audio(video)):
-        pieces.append(f"aselect={_select(spans)},asetpts=N/SR/TB")
-    if voice:
-        pieces.append(voice)
-    if pieces:
-        graph += f";[0:a]{','.join(pieces)}[a]"
+
+    if use_dissolve:
+        # the picture: framed first, then each kept piece is cut out and dissolved into the next
+        graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]")
+        graph += ";" + _dissolve_video(spans, dissolve, lens)          # ends at [vs]
+        graph += f";[vs]{effect + ',' if effect else ''}setsar=1[v]" if effect else ";[vs]null[v]"
+        pieces = []
+        if has_audio(video) or voice:
+            graph += ";" + _dissolve_audio(spans, dissolve)            # ends at [as]
+            graph += f";[as]{voice}[a]" if voice else ";[as]anull[a]"
+            pieces = ["dissolve"]
+    elif reordered:
+        # the parts were moved: join them in the order the creator chose
+        graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]")
+        graph += ";" + _concat_video(spans)
+        graph += f";[vs]{effect + ',' if effect else ''}setsar=1[v]" if effect else ";[vs]null[v]"
+        pieces = []
+        if has_audio(video) or voice:
+            graph += ";" + _concat_audio(spans)
+            graph += f";[as]{voice}[a]" if voice else ";[as]anull[a]"
+            pieces = ["concat"]
+    else:
+        # the picture: framed first (the speaker tracking works in the clip's own time), then the
+        # removed parts are dropped, then zoom/pan runs over the finished timeline
+        steps = []
+        if spans:
+            steps.append(f"fps=25,select={_select(spans)},setpts=N/(25*TB)")
+        if effect:
+            steps.append(f"{effect},setsar=1")
+        graph = _framing_filter(framing, src_w, src_h, plan).replace("[bg]", "[vf]" if steps else "[v]")
+        if steps:
+            graph += f";[vf]{','.join(steps)}[v]"
+
+        pieces = []
+        if spans and (voice or has_audio(video)):
+            pieces.append(f"aselect={_select(spans)},asetpts=N/SR/TB")
+        if voice:
+            pieces.append(voice)
+        if pieces:
+            graph += f";[0:a]{','.join(pieces)}[a]"
+    played = out_duration / speed
+    if speed != 1.0:
+        # the whole clip faster or slower: the picture and the sound together (pitch is kept for the voice)
+        assert graph.count("[v]") == 1, "unexpected picture label"
+        graph = graph.replace("[v]", "[vraw]") + f";[vraw]setpts=PTS/{speed:.4f}[v]"
+        if pieces:
+            assert graph.count("[a]") == 1, "unexpected sound label"
+            graph = graph.replace("[a]", "[araw]") + f";[araw]atempo={speed:.4f}[a]"
     cmd = ["ffmpeg", "-loglevel", "error", "-y",
            "-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", str(video),
            "-filter_complex", graph, "-map", "[v]", "-map", "[a]" if pieces else "0:a?",
-           "-t", f"{out_duration:.3f}",
+           "-t", f"{played:.3f}",
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p",
            "-c:a", "aac", "-b:a", "160k", str(base)]
     try:

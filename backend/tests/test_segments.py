@@ -65,12 +65,12 @@ def test_version_1_manifests_are_read_and_upgraded():
     assert manifest.is_cut(m) is False and manifest.output_length(m) == 10.0
 
 
-def test_segments_are_cut_to_the_range_sorted_and_summed():
+def test_segments_are_cut_to_the_range_kept_in_order_and_summed():
     doc = base()
     doc["clip"] = {"start": 2.0, "end": 8.0}
-    doc["segments"] = [{"start": 6.0, "end": 9.5}, {"start": 0.0, "end": 3.0}]       # out of order, past the ends
+    doc["segments"] = [{"start": 6.0, "end": 9.5}, {"start": 0.0, "end": 3.0}]       # past the ends; order is the play order
     m = manifest.validate(doc)
-    assert m["segments"] == [{"start": 2.0, "end": 3.0}, {"start": 6.0, "end": 8.0}]
+    assert m["segments"] == [{"start": 6.0, "end": 8.0}, {"start": 2.0, "end": 3.0}]
     assert manifest.output_length(m) == 3.0 and manifest.is_cut(m)
 
 

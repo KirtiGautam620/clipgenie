@@ -21,6 +21,16 @@ from app.export import apply_captions, apply_headline, apply_no_text, base_path,
 PICTURE, TEXT, MUSIC = "picture", "text", "music"
 
 
+def _speed(m: dict) -> float:
+    return m.get("speed", 1.0)
+
+
+def _transition_key(m: dict):
+    """What the picture depends on for transitions. Old manifests have none, which means no dissolve."""
+    t = m.get("transition") or {"type": "none"}
+    return (t.get("type"), t.get("seconds") if t.get("type") == "dissolve" else None)
+
+
 def stages(old: dict | None, new: dict, force: set | frozenset = frozenset()) -> list[str]:
     """Which stages must run to turn a clip made from `old` into one made from `new`.
     `force` adds stages even when nothing changed (an explicit 'apply'). With no `old` (a clip
@@ -29,7 +39,8 @@ def stages(old: dict | None, new: dict, force: set | frozenset = frozenset()) ->
         return [PICTURE, TEXT, MUSIC]
     todo = set(force)
     if any(old[k] != new[k] for k in ("clip", "segments", "framing", "effects")) \
-            or old["audio"]["clean_voice"] != new["audio"]["clean_voice"]:
+            or old["audio"]["clean_voice"] != new["audio"]["clean_voice"] \
+            or _transition_key(old) != _transition_key(new) or _speed(old) != _speed(new):
         todo.add(PICTURE)
     if (PICTURE in todo or old["text"] != new["text"] or old["fades"] != new["fades"]
             or old["audio"]["fade_with_video"] != new["audio"]["fade_with_video"]):

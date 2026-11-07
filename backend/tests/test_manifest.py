@@ -148,7 +148,8 @@ def test_a_clip_with_burned_in_captions_cannot_be_rendered_again():
 def test_default_render_args_equal_the_arguments_the_app_always_used():
     args = manifest.render_args(manifest.from_clip(LEGACY_CLIP))
     assert args == {"start": 0.0, "end": 2.0, "framing": "crop", "clean_audio": True,
-                    "effects": {"zoom": 1.0, "pan": "none"}, "segments": None}
+                    "effects": {"zoom": 1.0, "pan": "none"}, "segments": None,
+                    "dissolve": None, "speed": 1.0}
 
 
 def _fixture_video(path, seconds=2.0):

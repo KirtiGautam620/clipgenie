@@ -63,9 +63,23 @@ def default_manifest(start: float, end: float) -> dict:
         "effects": dict(effects.DEFAULT),
         "fades": {"in": 0.0, "out": 0.0},
         "transitions": [],
+        "transition": {"type": "none", "seconds": 0.2},
+        "speed": 1.0,
         "text": {"mode": "captions", "captions": None, "headline": None, "hook": None},
         "audio": {"clean_voice": True, "fade_with_video": True, "music": None},
     }
+
+
+NEW_CLIP_DISSOLVE = 0.2     # seconds: the default dissolve for a new clip with pauses removed
+
+
+def new_clip_transition(segments: list[dict] | None) -> dict:
+    """The transition a NEW clip starts with: a dissolve where pauses were removed, when every piece is long
+    enough for it (otherwise no dissolve, so the clip can still be made). Old clips never get this."""
+    secs = NEW_CLIP_DISSOLVE
+    if not segments or len(segments) < 2 or min(s["end"] - s["start"] for s in segments) < 2 * secs:
+        return {"type": "none", "seconds": secs}
+    return {"type": "dissolve", "seconds": secs}
 
 
 def from_clip(clip: dict) -> dict:
@@ -80,6 +94,8 @@ def from_clip(clip: dict) -> dict:
         m["framing"]["mode"] = clip["framing_choice"]
     if clip.get("effects"):
         m["effects"] = {**m["effects"], **clip["effects"]}
+    if clip.get("transition"):            # stored on new clips (see new_clip_transition); old clips have none
+        m["transition"] = {**m["transition"], **clip["transition"]}
     # settings that only the manifest knows about are saved on the clip under their own names
     if clip.get("fades"):
         m["fades"] = {**m["fades"], **clip["fades"]}
@@ -163,6 +179,25 @@ def validate(manifest: dict) -> dict:
     if _section(manifest, "transitions", list):
         raise ValueError("Transitions are not supported yet: transitions must be empty.")
     out["transitions"] = []
+
+    # transition: a soft dissolve where a removed pause was (off by default). Only meaningful for
+    # clips made of more than one segment. A dissolve must be shorter than each piece it joins.
+    tr = manifest.get("transition") or {}
+    ttype = tr.get("type", "none")
+    if ttype not in ("none", "dissolve"):
+        raise ValueError("transition.type must be none or dissolve.")
+    secs = round(_number(tr.get("seconds", 0.2), "transition.seconds", 0.05, 1.0), 2)
+    if ttype == "dissolve" and is_reordered(segments):
+        raise ValueError("Turn off the dissolve to move parts of the video around.")
+    if ttype == "dissolve" and len(segments) > 1:
+        shortest = min(s["end"] - s["start"] for s in segments)
+        if shortest < 2 * secs:
+            raise ValueError("A dissolve is too long for one of the pieces it joins. Choose a shorter dissolve.")
+    out["transition"] = {"type": ttype, "seconds": secs}
+
+    # speed: the whole clip played faster or slower (1.0 = as recorded). Kept within a range where the
+    # voice still sounds natural.
+    out["speed"] = round(_number(manifest.get("speed", 1.0), "speed", 0.8, 1.25), 2)
 
     text = _section(manifest, "text")
     tmode = text.get("mode")
@@ -250,11 +285,16 @@ def _check_segments(segments, start: float, end: float) -> list[dict]:
             kept.append({"start": round(s, 3), "end": round(e, 3)})
     if not kept:
         raise ValueError("None of the kept parts are inside the video's range.")
-    kept.sort(key=lambda s: s["start"])
-    for a, b in zip(kept, kept[1:]):
+    by_time = sorted(kept, key=lambda s: s["start"])
+    for a, b in zip(by_time, by_time[1:]):
         if b["start"] < a["end"] - 0.001:
             raise ValueError("The kept parts of the video overlap.")
-    return kept
+    return kept          # the order in the list is the order they play in (it may differ from the clip's time)
+
+
+def is_reordered(segments: list[dict]) -> bool:
+    """True when the parts do not play in the order they come in the clip (a part was moved)."""
+    return any(b["start"] < a["end"] - 0.001 for a, b in zip(segments, segments[1:]))
 
 
 def output_length(m: dict) -> float:
@@ -401,7 +441,9 @@ def render_args(manifest: dict) -> dict:
     m = validate(manifest)
     return {"start": m["clip"]["start"], "end": m["clip"]["end"], "framing": m["framing"]["mode"],
             "clean_audio": m["audio"]["clean_voice"], "effects": m["effects"],
-            "segments": [(s["start"], s["end"]) for s in m["segments"]] if is_cut(m) else None}
+            "segments": [(s["start"], s["end"]) for s in m["segments"]] if is_cut(m) else None,
+            "dissolve": m["transition"]["seconds"] if m["transition"]["type"] == "dissolve" else None,
+            "speed": m["speed"]}
 
 
 def text_drawer_spec(manifest: dict) -> dict:
@@ -410,7 +452,8 @@ def text_drawer_spec(manifest: dict) -> dict:
     t = m["text"]
     if t["mode"] == "captions" and t["captions"] is not None:
         return {"kind": "captions", "style": t["captions"]["style"], "hook": t["hook"],
-                "words": remap_words(t["captions"]["words"], m)}       # in time of the finished video
+                "words": [{**w, "start": w["start"] / m["speed"], "end": w["end"] / m["speed"]}
+                          for w in remap_words(t["captions"]["words"], m)]}   # in time of the finished video
     if t["mode"] == "headline":
         return {"kind": "headline", **t["headline"]}
     return {"kind": "none", "hook": t["hook"]}

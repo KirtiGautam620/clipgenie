@@ -238,24 +238,44 @@ def _pick(segments: list[dict], min_len: float, max_len: float,
 
 # ---------------------------------------------------------------- the hook line
 
-HOOK_MAX_CHARS = 60
+HOOK_MAX_CHARS = 45
 
-HOOK_SYSTEM = """You write the on-screen hook for a vertical short video: ONE short line, shown at the
-start, that makes a viewer curious enough to keep watching.
+HOOK_SYSTEM = """You write the on-screen HEADING for a vertical short video: a short title-style line,
+shown at the start, that tells a viewer what the video is about and why to keep watching.
 Rules:
-- Use ONLY what is said in the transcript. Never invent facts, numbers or promises.
+- Write it in your own words as a heading. Do NOT copy or quote a sentence from the transcript.
+- Base it only on the idea the speaker talks about. Never invent facts, numbers or promises.
 - Same language as the transcript (English, Hindi in Devanagari, or Hinglish in Roman letters).
-- At most 8 words and 60 characters. No hashtags, no emojis, no quotation marks, no clickbait lies.
-Answer ONLY with JSON: {"hook": "<the line>"}"""
+- 3 to 6 words, at most 45 characters. No hashtags, no emojis, no quotation marks, no clickbait lies.
+Answer ONLY with JSON: {"hook": "<the heading>"}"""
+HOOK_MAX_WORDS = 6
+HOOK_QUOTE_RUN = 4          # this many words in a row copied from the transcript means it is a quote
 
 
-def clean_hook(raw) -> str | None:
-    """A model's hook line, checked. None if it is not usable (empty, too long, a link or a hashtag)."""
+def _words(text: str) -> list[str]:
+    return re.findall(r"[^\W_]+", text.lower())
+
+
+def _copies_speech(hook: str, transcript_text: str) -> bool:
+    """True when the heading repeats a run of words the speaker actually said (it is a quote, not a heading)."""
+    h = _words(hook)
+    t = _words(transcript_text)
+    if len(h) < HOOK_QUOTE_RUN:
+        return False
+    runs = {tuple(t[i:i + HOOK_QUOTE_RUN]) for i in range(len(t) - HOOK_QUOTE_RUN + 1)}
+    return any(tuple(h[i:i + HOOK_QUOTE_RUN]) in runs for i in range(len(h) - HOOK_QUOTE_RUN + 1))
+
+
+def clean_hook(raw, transcript_text: str = "") -> str | None:
+    """A model's heading, checked. None if it is not usable: empty, too long, a link or a hashtag,
+    too many words, or a copy of something said in the clip."""
     from app.captionstyles import clean_headline
     if not isinstance(raw, str):
         return None
-    text = raw.strip().strip("\"'“”‘’ ").strip()
+    text = raw.strip().strip("\"'“”‘’<> ").strip()
     if not text or len(text) > HOOK_MAX_CHARS or re.search(r"https?://|www\.|#\w|@\w", text):
+        return None
+    if len(text.split()) > HOOK_MAX_WORDS or _copies_speech(text, transcript_text):
         return None
     try:
         return clean_headline(text)
@@ -269,4 +289,4 @@ def suggest_hook(transcript_text: str) -> str | None:
     text = transcript_text.strip()[:1500]
     if len(text) < 20:
         return None
-    return clean_hook(ask_json(HOOK_SYSTEM, text).get("hook"))
+    return clean_hook(ask_json(HOOK_SYSTEM, text).get("hook"), text)
