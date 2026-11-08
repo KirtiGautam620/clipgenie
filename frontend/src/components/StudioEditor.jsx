@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Timeline from './Timeline.jsx';
 import EditDecisionsPanel from './EditDecisionsPanel.jsx';
 import CaptionsStylePanel from './CaptionsStylePanel.jsx';
+import SongPartPicker from './SongPartPicker.jsx';
 import ExportStudioModal from './ExportStudioModal.jsx';
 import { getJSON } from '../api.js';
 import { buildTracks, FRAMING_LABELS, keptSeconds, outputLength, outToSource, isCut, cutSegments, removedGaps, restoreGap, movePart } from '../studioTracks.js';
@@ -46,17 +47,26 @@ function describeText(text) {
 function MusicPanel({ jobId, clip, tracks, onApplied }) {
   const [trackId, setTrackId] = useState(clip.music?.track_id || '');
   const [volume, setVolume] = useState(clip.music?.volume ?? 0.6);
+  const [start, setStart] = useState(clip.music?.start ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setTrackId(clip.music?.track_id || '');
     setVolume(clip.music?.volume ?? 0.6);
+    setStart(clip.music?.start ?? 0);
     setError('');
   }, [clip.id, clip.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Which part of a long song: the clip is this many seconds, so the start can go up to song - clip.
+  const track = tracks.find((t) => t.id === trackId);
+  const songLength = track?.seconds || 0;
+  const clipLength = clip.duration || 0;
+  const startAt = Math.min(start, Math.max(0, songLength - (clipLength || songLength)));
+
   const changed = (clip.music?.track_id || '') !== trackId
-    || (trackId && Math.abs((clip.music?.volume ?? 0) - volume) > 0.001);
+    || (trackId && (Math.abs((clip.music?.volume ?? 0) - volume) > 0.001
+      || Math.abs((clip.music?.start ?? 0) - startAt) > 0.01));
 
   async function apply() {
     setBusy(true);
@@ -65,11 +75,11 @@ function MusicPanel({ jobId, clip, tracks, onApplied }) {
       const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/music`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track_id: trackId || null, volume }),
+        body: JSON.stringify({ track_id: trackId || null, volume, start: startAt }),
       });
       onApplied(updated);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'Could not apply the music.');
     } finally {
       setBusy(false);
     }
@@ -84,13 +94,18 @@ function MusicPanel({ jobId, clip, tracks, onApplied }) {
       <div className="cg-field">
         <label className="cg-label" htmlFor="studio-music-track">Track</label>
         <select id="studio-music-track" className="cg-select" value={trackId} disabled={busy}
-          onChange={(e) => setTrackId(e.target.value)}>
+          onChange={(e) => { setTrackId(e.target.value); setStart(0); }}>
           <option value="">No music</option>
           {tracks.map((t) => (
             <option key={t.id} value={t.id}>{t.title}{t.moods?.[0] ? ` (${t.moods[0]})` : ''}</option>
           ))}
         </select>
       </div>
+      {trackId && (
+        <SongPartPicker id="studio-music" songSeconds={songLength} start={startAt} onStart={setStart}
+          minLength={clipLength || songLength} maxLength={clipLength || songLength}
+          previewUrl={`/api/music/${trackId}/preview`} disabled={busy} />
+      )}
       {trackId && (
         <div className="cg-field">
           <div className="cg-position-header">
@@ -381,6 +396,12 @@ function EffectsPanel({ jobId, clip, man, onApplied, onScrub }) {
   );
 }
 
+// The look a new heading gets (the same as the server's default for headings)
+const DEFAULT_HOOK_PRESET = 'plain';
+// How long a heading stays on screen: 0 = the whole clip
+const HOOK_DURATIONS = [3, 5, 8, 0];
+const durationLabel = (s) => (s === 0 ? 'Whole clip' : `${s} seconds`);
+
 // The hook: a title card over the first seconds, shown together with the captions. A suggestion from
 // CocoGenie is only a draft: nothing goes on the video until you press "Add to video".
 function HookSection({ jobId, clip, onApplied }) {
@@ -388,8 +409,10 @@ function HookSection({ jobId, clip, onApplied }) {
   const [text, setText] = useState(hook?.text || '');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [seconds, setSeconds] = useState(hook?.style?.seconds ?? 0);
 
   useEffect(() => { setText(hook?.text || ''); setError(''); }, [clip.id, clip.version, hook?.text]);
+  useEffect(() => { setSeconds(hook?.style?.seconds ?? 0); }, [clip.id, clip.version, hook?.style?.seconds]);
 
   async function send(body, label) {
     setBusy(label);
@@ -411,35 +434,53 @@ function HookSection({ jobId, clip, onApplied }) {
   const drawn = !!hook?.approved;
   const suggested = hook?.source === 'ai' && !drawn;
   const clean = text.trim();
-  const previewQuery = new URLSearchParams({ preset: hook?.style?.preset || 'poster', seconds: String(hook?.style?.seconds || 3),
+  const previewQuery = new URLSearchParams({ preset: hook?.style?.preset || DEFAULT_HOOK_PRESET, seconds: String(hook?.style?.seconds || 3),
     ...(clean ? { text: clean } : {}) }).toString();
+  // The server only puts a heading on clips whose speech it can trust (or with no text at all)
+  const blocked = clip.text?.mode !== 'captions' && clip.text?.mode !== 'none';
 
   return (
     <div className="cg-hook-section">
-      <h4 className="cg-panel-subhead">Hook line</h4>
-      {suggested && (
+      <h4 className="cg-panel-subhead">Heading</h4>
+      {blocked && (
         <p className="cg-text-xs cg-text-muted">
-          CocoGenie suggests this hook from what is said. It is not on your video yet: edit it if you like, then add it.
+          A heading can't be added to this clip because its speech isn't clear enough to trust. Use
+          “Change the text” above and choose a headline you write instead.
         </p>
       )}
-      {!hook && (
+      {suggested && (
         <p className="cg-text-xs cg-text-muted">
-          A short title over the first seconds, shown together with the captions. Write your own.
+          CocoGenie suggests this heading from what is said. It is not on your video yet: edit it if you like, then add it.
+        </p>
+      )}
+      {!hook && !blocked && (
+        <p className="cg-text-xs cg-text-muted">
+          A short title over the top of the video, shown together with the captions. Write your own.
         </p>
       )}
       <label className="cg-field">
-        <span className="cg-text-sm">{drawn ? 'On your video' : 'Hook'}</span>
+        <span className="cg-text-sm">{drawn ? 'On your video' : 'Heading text'}</span>
         <textarea className="cg-input cg-headline-input" rows={2} maxLength={120} value={text}
-          placeholder="e.g. the one thing most people miss" disabled={!!busy}
+          placeholder="e.g. the one thing most people miss" disabled={!!busy || blocked}
           onChange={(e) => setText(e.target.value)} />
       </label>
-      {clean && <div className="cg-caption-preview"><img src={`/api/headline-preview.png?${previewQuery}`} alt="Hook preview" /></div>}
+      {!blocked && (
+        <label className="cg-field">
+          <span className="cg-text-sm">How long it stays</span>
+          <select className="cg-input" value={seconds} disabled={!!busy}
+            onChange={(e) => setSeconds(Number(e.target.value))}>
+            {[...new Set([...HOOK_DURATIONS, seconds])].sort((a, b) => (a === 0 ? 1 : b === 0 ? -1 : a - b))
+              .map((v) => <option key={v} value={v}>{durationLabel(v)}</option>)}
+          </select>
+        </label>
+      )}
+      {clean && !blocked && <div className="cg-caption-preview"><img src={`/api/headline-preview.png?${previewQuery}`} alt="Heading preview" /></div>}
       {error && <p className="cg-text-xs cg-text-error">{error}</p>}
       <div className="cg-hook-actions">
         <button type="button" className="cg-btn cg-btn--primary cg-btn--sm"
-          disabled={!clean || !!busy || (drawn && clean === hook.text)}
-          onClick={() => send({ text: clean, approve: true }, 'add')}>
-          {busy === 'add' ? 'Adding…' : drawn ? 'Update hook' : 'Add to video'}
+          disabled={blocked || !clean || !!busy || (drawn && clean === hook.text)}
+          onClick={() => send({ text: clean, approve: true, style: { seconds } }, 'add')}>
+          {busy === 'add' ? 'Adding…' : drawn ? 'Update heading' : 'Add to video'}
         </button>
         {hook && (
           <button type="button" className="cg-btn cg-btn--ghost cg-btn--sm" disabled={!!busy}
@@ -448,7 +489,54 @@ function HookSection({ jobId, clip, onApplied }) {
           </button>
         )}
       </div>
-      {drawn && <p className="cg-text-xs cg-text-muted">Adding or removing a hook remakes the video and needs its checklist confirmed again.</p>}
+      {drawn && <p className="cg-text-xs cg-text-muted">Adding or removing a heading remakes the video and needs its checklist confirmed again.</p>}
+    </div>
+  );
+}
+
+// Make the clip longer at its end, so it does not stop in the middle of a sentence. The footage
+// after the clip is used, and the captions said in that time are added.
+function ExtendSection({ jobId, clip, onApplied }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  async function extend(body, label) {
+    setBusy(label);
+    setError('');
+    try {
+      const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      onApplied(updated);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <div className="cg-hook-section">
+      <h4 className="cg-panel-subhead">Length</h4>
+      <p className="cg-text-xs cg-text-muted">
+        This clip is {Math.round(clip.duration)} seconds. If it stops in the middle of a thought, make it longer.
+        The footage after the clip is used, and its captions are added. Extending remakes the video, so its checklist must be confirmed again.
+      </p>
+      <div className="cg-hook-actions">
+        <button type="button" className="cg-btn cg-btn--primary cg-btn--sm" disabled={!!busy}
+          onClick={() => extend({ to_sentence: true }, 'sentence')}>
+          {busy === 'sentence' ? 'Extending…' : 'Extend to end of sentence'}
+        </button>
+        {[2, 5].map((n) => (
+          <button key={n} type="button" className="cg-btn cg-btn--secondary cg-btn--sm" disabled={!!busy}
+            onClick={() => extend({ seconds: n }, `s${n}`)}>
+            {busy === `s${n}` ? 'Extending…' : `+${n} seconds`}
+          </button>
+        ))}
+      </div>
+      {error && <p className="cg-text-xs cg-text-error">{error}</p>}
     </div>
   );
 }
@@ -477,6 +565,46 @@ export default function StudioEditor({
     setClip(updated);
     if (onClipUpdated) onClipUpdated(updated);
   };
+
+  // Make the clip longer from the timeline (drag the end of the video). The footage after it is used.
+  async function extendClip(seconds) {
+    const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/extend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seconds }),
+    });
+    applied(updated);
+  }
+
+  // Change how long the hook stays, from the timeline. Same text and look; only the length changes.
+  async function resizeHook(seconds) {
+    const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/hook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clip.text.hook.text, approve: true, style: { seconds } }),
+    });
+    applied(updated);
+  }
+
+  // Fix the words of one caption block from the timeline. The block keeps the same number of words
+  // (adding or removing words is done in the Captions tab), so the timing stays as it was.
+  async function editCaption(block, text) {
+    const saved = clip.captions?.words || [];
+    const parts = text.split(/\s+/).filter(Boolean);
+    const count = block.wordIdx.length;
+    if (parts.length !== count) {
+      throw new Error(`Keep ${count} word${count === 1 ? '' : 's'} in this caption. `
+        + 'To add or remove words, use the Captions tab.');
+    }
+    const texts = saved.map((w) => w.text);
+    block.wordIdx.forEach((idx, k) => { texts[idx] = parts[k]; });
+    const updated = await getJSON(`/api/jobs/${jobId}/clips/${clip.id}/captions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preset: null, style: {}, words: texts }),
+    });
+    applied(updated);
+  }
 
   // the manifest describes how this clip is made; load it again whenever the clip is remade
   useEffect(() => {
@@ -560,16 +688,19 @@ export default function StudioEditor({
                 <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={() => setLeftTab('captions')}>
                   Change the text
                 </button>
-                {(clip.text?.mode === 'captions' || clip.text?.mode === 'none') && (
-                  <HookSection jobId={jobId} clip={clip} onApplied={applied} />
-                )}
+                <HookSection jobId={jobId} clip={clip} onApplied={applied} />
               </div>
             )}
             {leftTab === 'captions' && <CaptionsStylePanel jobId={jobId} clip={clip} onApplied={applied} />}
             {leftTab === 'ai' && (
               <EditDecisionsPanel jobId={jobId} clip={clip} man={man} onApplied={applied} onOpenText={() => setLeftTab('text')} />
             )}
-            {leftTab === 'picture' && <EffectsPanel jobId={jobId} clip={clip} man={man} onApplied={applied} onScrub={handleSeek} />}
+            {leftTab === 'picture' && (
+              <>
+                <ExtendSection jobId={jobId} clip={clip} onApplied={applied} />
+                <EffectsPanel jobId={jobId} clip={clip} man={man} onApplied={applied} onScrub={handleSeek} />
+              </>
+            )}
             {leftTab === 'audio' && <MusicPanel jobId={jobId} clip={clip} tracks={musicTracks} onApplied={applied} />}
           </div>
         </aside>
@@ -648,6 +779,9 @@ export default function StudioEditor({
         tracks={buildTracks(clip, duration, man)}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
+        onEditCaption={editCaption}
+        onExtend={extendClip}
+        onResizeHook={resizeHook}
       />
 
       {showExportModal && (

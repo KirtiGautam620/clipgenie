@@ -5,6 +5,7 @@ text. A track without a license record is still usable, but is flagged with a wa
 """
 import json
 import re
+import subprocess
 import uuid
 import zlib
 from pathlib import Path
@@ -27,6 +28,30 @@ LICENSES = {
 
 # If no track has the clip's mood, try these instead (calmest first).
 FALLBACK_MOODS = ["educational", "emotional", "other"]
+
+
+_SECONDS_CACHE: dict[str, tuple[float, float]] = {}   # file -> (modified time, length in seconds)
+
+
+def track_seconds(track: dict) -> float:
+    """How long the track is, in seconds (0 if it cannot be read). Cached per file."""
+    path = track_path(track)
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return 0.0
+    cached = _SECONDS_CACHE.get(str(path))
+    if cached and cached[0] == mtime:
+        return cached[1]
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, check=True).stdout
+        seconds = round(float(out.strip()), 2)
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        seconds = 0.0
+    _SECONDS_CACHE[str(path)] = (mtime, seconds)
+    return seconds
 
 
 def _load_raw() -> list[dict]:
@@ -62,7 +87,7 @@ def list_tracks() -> list[dict]:
     for t in tracks:
         if (MUSIC_DIR / t["file"]).exists():
             out.append({**t, "license_label": LICENSES.get(t["license"], t["license"]),
-                        "warning": _warning(t)})
+                        "warning": _warning(t), "seconds": track_seconds(t)})
     return out
 
 

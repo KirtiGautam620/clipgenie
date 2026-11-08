@@ -66,7 +66,7 @@ HOOK_SECONDS = 3      # a hook card stays on screen this long (unless the style 
 
 
 def attach_hook(entry_text: dict, hook: dict | None, seconds: int = HOOK_SECONDS,
-                preset: str = captionstyles.DEFAULT_HEADLINE_PRESET) -> None:
+                preset: str = captionstyles.DEFAULT_HOOK_PRESET) -> None:
     """Put a hook DRAFT on a clip's text block. It is not drawn on the video: the user previews and
     approves it first (see set_clip_hook), exactly like a headline they typed themselves."""
     if not hook:

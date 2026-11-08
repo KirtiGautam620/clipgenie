@@ -116,13 +116,14 @@ export function restoreGap(parts, index) {
 }
 
 /** Caption words (stored from the clip's start) in finished-video time; words that were cut are dropped. */
+// Each word keeps `idx`, its place in the clip's saved caption words, so an edit can find it again.
 export function mapWords(words, man) {
-  if (!man || !isCut(man)) return words;
+  if (!man || !isCut(man)) return words.map((w, idx) => ({ ...w, idx }));
   const out = [];
-  words.forEach((w) => {
+  words.forEach((w, idx) => {
     const start = sourceToOut(man, man.clip.start + w.start);
     const end = sourceToOut(man, man.clip.start + w.end);
-    if (start !== null && end !== null && end >= start) out.push({ ...w, start, end });
+    if (start !== null && end !== null && end >= start) out.push({ ...w, start, end, idx });
   });
   return out;
 }
@@ -149,7 +150,8 @@ export function captionBlocks(captions, man) {
     const start = g[0].start;
     const nextStart = groups[i + 1]?.[0].start ?? Infinity;
     const end = Math.min(g[g.length - 1].end + HOLD, nextStart);
-    return { id: `cap-${i}`, title: g.map((w) => w.text).join(' '), start, duration: Math.max(0.2, end - start) };
+    return { id: `cap-${i}`, title: g.map((w) => w.text).join(' '), start, duration: Math.max(0.2, end - start),
+      wordIdx: g.map((w) => w.idx), editable: true };
   });
 }
 
@@ -174,7 +176,7 @@ export function buildTracks(clip, duration, man) {
   if (hook?.approved && (text.mode === 'captions' || text.mode === 'none')) {
     const seconds = hook.style?.seconds || duration;
     tracks.push({ key: 'effects', label: 'Hook',
-      blocks: [{ id: 'hook', title: hook.text, start: 0, duration: Math.min(seconds, duration) }] });
+      blocks: [{ id: 'hook', title: hook.text, start: 0, duration: Math.min(seconds, duration), resizable: true }] });
   }
   tracks.push({ key: 'music', label: 'Music', blocks: clip.music
     ? [{ id: 'music', title: `${clip.music.title} (${Math.round((clip.music.volume ?? 0.6) * 100)}%)`, start: 0, duration }]

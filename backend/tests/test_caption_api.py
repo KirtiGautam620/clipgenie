@@ -145,7 +145,7 @@ def test_music_is_mixed_back_in_after_a_caption_change(client, folders, monkeypa
     track = {"id": "t1", "title": "S", "license_label": "CC0", "attribution": "", "warning": None}
     monkeypatch.setattr(render.music, "get_track", lambda tid: track)
     monkeypatch.setattr(render.music, "track_path", lambda t: folder / "t.wav")
-    monkeypatch.setattr(render.mix, "apply_music", lambda base, trk, out, vol: mixed.append(vol) or shutil.copyfile(base, out))
+    monkeypatch.setattr(render.mix, "apply_music", lambda base, trk, out, vol, start=0.0: mixed.append(vol) or shutil.copyfile(base, out))
     r = client.post(f"/api/jobs/{job}/clips/1/captions", json={"preset": "pill"})
     assert r.status_code == 200 and mixed == [0.5]
     assert r.json()["captions"]["style"]["preset"] == "pill"

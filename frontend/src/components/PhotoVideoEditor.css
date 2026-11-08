@@ -1,0 +1,58 @@
+/* The "Change a part of the video" editor on the photo video page */
+.pve { margin-top: 28px; display: grid; gap: 14px; max-width: 760px; }
+.pve-title { font-family: var(--cg-font-serif, Georgia, serif); font-size: 22px; margin: 0; color: var(--cg-text-primary, #1d2b24); }
+.pve-hint { margin: 0; font-size: 13px; color: var(--cg-text-muted, #6b7770); }
+.pve-cards { display: grid; gap: 12px; }
+
+.pve-card {
+  display: grid; gap: 12px; padding: 14px 16px;
+  background: var(--cg-bg-surface, #fffdf7);
+  border: 1px solid var(--cg-border-subtle, #d9d4c4);
+  border-radius: 12px;
+}
+.pve-card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pve-number {
+  flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--cg-accent, #285d46); color: #fff; font-size: 13px; font-weight: 600;
+}
+.pve-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pve-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.pve-field { display: grid; gap: 4px; min-width: 0; }
+.pve-field--wide { display: grid; gap: 4px; }
+.pve-label { font-size: 12px; font-weight: 600; color: var(--cg-text-secondary, #47574e); }
+
+.pve input[type="text"], .pve select {
+  width: 100%; box-sizing: border-box; min-height: 36px; padding: 6px 10px;
+  border: 1px solid var(--cg-border-default, #bdb8a6); border-radius: 8px;
+  background: #fff; color: var(--cg-text-primary, #1d2b24); font: inherit; font-size: 14px;
+}
+.pve input[type="text"]:disabled, .pve select:disabled { opacity: 0.55; }
+
+.pve-command { display: grid; gap: 6px; }
+.pve-command-row { display: flex; gap: 8px; }
+.pve-command-row input { flex: 1; min-width: 0; }
+.pve-button {
+  min-height: 36px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--cg-border-default, #bdb8a6);
+  background: #fff; font: inherit; font-size: 14px; cursor: pointer;
+}
+.pve-button--primary { background: var(--cg-accent, #285d46); color: #fff; border-color: transparent; }
+.pve-button:disabled { opacity: 0.5; cursor: default; }
+.pve-status { margin: 0; font-size: 14px; color: var(--cg-text-secondary, #47574e); }
+.pve-error { margin: 0; font-size: 14px; color: #b3261e; }
+
+@media (max-width: 480px) {
+  .pve-command-row { flex-direction: column; }
+}
+
+/* Checking the lyric times */
+.pve-timing { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pve-timing-row {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 6px 10px; border-radius: 10px;
+  background: var(--cg-bg-surface, #fffdf7); border: 1px solid var(--cg-border-subtle, #d9d4c4);
+}
+.pve-timing-row input { width: 100%; box-sizing: border-box; min-height: 34px; padding: 4px 8px;
+  border: 1px solid var(--cg-border-default, #bdb8a6); border-radius: 8px; font: inherit; font-size: 14px; }
+.pve-timing-text { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pve-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #f3e9c6; color: #6b5a1e; }

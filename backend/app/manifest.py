@@ -15,7 +15,9 @@
                                                                            seconds, WITH captions or no text
      "audio":       {"clean_voice": true,
                      "fade_with_video": true,                 the sound fades with the picture
-                     "music": {"track_id": "...", "volume": 0.6} | null}}
+                     "music": {"track_id": "...", "volume": 0.6, "start": 0.0} | null}}
+                                                             start = seconds into the song where the clip's
+                                                             music begins (the part of a long song you chose)
 
 Where it comes from: nothing new is stored. `from_clip()` builds the manifest from the clip entry
 already saved in clips.json, so every existing job has one. Missing parts get defaults that give
@@ -120,7 +122,8 @@ def from_clip(clip: dict) -> dict:
 
     music = clip.get("music")
     if music:
-        m["audio"]["music"] = {"track_id": music.get("track_id"), "volume": music.get("volume", 0.6)}
+        m["audio"]["music"] = {"track_id": music.get("track_id"), "volume": music.get("volume", 0.6),
+                               "start": music.get("start", 0.0)}
     return m
 
 
@@ -222,7 +225,7 @@ def validate(manifest: dict) -> dict:
             raise ValueError("A hook needs its text.")
         style = dict(hook.get("style") or {})
         try:                                    # checked with the same rules as a headline's look
-            style = captionstyles.resolve_headline(style.get("preset") or captionstyles.DEFAULT_HEADLINE_PRESET,
+            style = captionstyles.resolve_headline(style.get("preset") or captionstyles.DEFAULT_HOOK_PRESET,
                                                    {k: v for k, v in style.items() if k != "preset"}).as_dict()
             hook = {"text": captionstyles.clean_headline(hook["text"]), "style": style}
         except ValueError as e:
@@ -241,7 +244,8 @@ def validate(manifest: dict) -> dict:
         if not isinstance(music, dict) or not music.get("track_id"):
             raise ValueError("audio.music needs a track_id.")
         music = {"track_id": str(music["track_id"]),
-                 "volume": _number(music.get("volume", 0.6), "audio.music.volume", 0, 1)}
+                 "volume": _number(music.get("volume", 0.6), "audio.music.volume", 0, 1),
+                 "start": _number(music.get("start", 0.0), "audio.music.start", 0, 86400)}
     fade_audio = audio.get("fade_with_video", True)
     if not isinstance(fade_audio, bool):
         raise ValueError("audio.fade_with_video must be true or false.")

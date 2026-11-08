@@ -93,7 +93,7 @@ def test_old_clips_without_a_text_block_count_as_captions():
 # ================================================================== headline styles and drawing
 
 def test_headline_presets_and_validation():
-    assert [p["id"] for p in captionstyles.headline_preset_list()] == ["poster", "banner", "title"]
+    assert [p["id"] for p in captionstyles.headline_preset_list()] == ["poster", "banner", "title", "handwritten", "plain"]
     s = captionstyles.resolve_headline("banner", {"size": 5, "position": 99, "seconds": 1})
     assert (s.size, s.position, s.seconds) == (40, 72, 2)                     # clamped, never below 2 s
     assert captionstyles.resolve_headline("poster", {"seconds": 0}).seconds == 0   # 0 = whole clip
@@ -321,7 +321,7 @@ def test_music_is_mixed_back_after_a_text_change(client, folders, monkeypatch):
     track = {"id": "t1", "title": "S", "license_label": "CC0", "attribution": "", "warning": None}
     monkeypatch.setattr(render.music, "get_track", lambda tid: track)
     monkeypatch.setattr(render.music, "track_path", lambda t: folder / "t.wav")
-    monkeypatch.setattr(render.mix, "apply_music", lambda base, trk, out, vol: mixed.append(vol) or shutil.copyfile(base, out))
+    monkeypatch.setattr(render.mix, "apply_music", lambda base, trk, out, vol, start=0.0: mixed.append(vol) or shutil.copyfile(base, out))
     assert client.post(f"/api/jobs/{job}/clips/1/text", json={"mode": "none"}).status_code == 200
     assert mixed == [0.5]
 
@@ -336,7 +336,7 @@ def test_unknown_clip_and_job(client, folders):
 
 def test_headline_presets_endpoint(client):
     data = client.get("/api/headline-presets").json()
-    assert [p["id"] for p in data["presets"]] == ["poster", "banner", "title"]
+    assert [p["id"] for p in data["presets"]] == ["poster", "banner", "title", "handwritten", "plain"]
     assert data["max_chars"] == 120 and data["limits"]["position"] == [10, 72]
 
 

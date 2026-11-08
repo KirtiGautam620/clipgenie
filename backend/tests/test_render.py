@@ -113,7 +113,7 @@ def test_music_can_still_be_changed_on_an_old_clip(client, folders, monkeypatch)
     mixed = []
     monkeypatch.setattr(render.music, "get_track", lambda tid: track)
     monkeypatch.setattr(render.music, "track_path", lambda t: folder / "t.wav")
-    monkeypatch.setattr(render.mix, "apply_music", lambda b, t, out, v: mixed.append(v) or shutil.copyfile(b, out))
+    monkeypatch.setattr(render.mix, "apply_music", lambda b, t, out, v, start=0.0: mixed.append(v) or shutil.copyfile(b, out))
     monkeypatch.setattr(render, "render_base", lambda *a, **k: pytest.fail("the picture must not be remade"))
     r = client.post(f"/api/jobs/{job}/clips/1/music", json={"track_id": "t1", "volume": 0.4})
     assert r.status_code == 200 and mixed == [0.4]

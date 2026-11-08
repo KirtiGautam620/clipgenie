@@ -1,0 +1,20 @@
+/* Which part of a song to use (shared by the Studio music panel and photo videos) */
+.cg-song-bar {
+  position: relative;
+  height: 24px;
+  margin: 6px 0;
+  border-radius: var(--cg-radius-sm);
+  background: var(--cg-bg-inset);
+  border: 1px solid var(--cg-border-subtle);
+  overflow: hidden;
+}
+
+.cg-song-window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 2px;
+  background: var(--cg-accent);
+  opacity: 0.55;
+  transition: left var(--cg-transition-fast), width var(--cg-transition-fast);
+}

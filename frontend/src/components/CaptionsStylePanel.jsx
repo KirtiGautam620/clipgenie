@@ -261,7 +261,7 @@ function CaptionsEditor({ jobId, clip, onApplied, onOtherText }) {
             <input
               key={i}
               className={`cg-input cg-caption-word ${t !== savedWords[i] ? 'edited' : ''}`}
-              style={{ width: `${Math.max(4, t.length + 2)}ch` }}
+              style={{ width: `calc(${Math.max(4, t.length)}ch + 22px)` }}
               value={t}
               maxLength={40}
               title={`${caps.words[i].start.toFixed(1)}s`}

@@ -107,7 +107,7 @@ def render(folder: Path, clip_id: int, old: dict | None, new: dict, force: set |
             track = music.get_track(wanted["track_id"])
             if track is None:
                 raise KeyError("Unknown music track")
-            mix.apply_music(final, music.track_path(track), t_music, wanted["volume"])
+            mix.apply_music(final, music.track_path(track), t_music, wanted["volume"], wanted.get("start", 0.0))
         result["music"] = track
 
         # every stage succeeded: move the results into place

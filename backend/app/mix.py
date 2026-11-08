@@ -29,16 +29,19 @@ def _duration(video: Path) -> float:
     return float(out.strip())
 
 
-def apply_music(base: Path, track: Path, out: Path, volume: float) -> None:
+def apply_music(base: Path, track: Path, out: Path, volume: float, start: float = 0.0) -> None:
     """Write `out` = `base` video with `track` mixed in under the speech.
 
     volume: 0.0 (silent) .. 1.0 (full music bed). Values above 1 are clamped.
+    start: seconds into the song where the clip's music begins (the part of a long song you chose).
+           If the song ends before the clip does, it carries on from its beginning (it loops).
     """
     volume = max(0.0, min(1.0, volume))
+    start = max(0.0, start)
     dur = _duration(base)
     fade_out = min(FADE_OUT, dur / 3)
     music = (
-        f"[1:a]atrim=0:{dur:.3f},asetpts=PTS-STARTPTS,"
+        f"[1:a]atrim=start={start:.3f}:duration={dur:.3f},asetpts=PTS-STARTPTS,"
         f"loudnorm=I={MUSIC_LEVEL_LUFS}:TP=-2:LRA=11,volume={volume:.3f},"
         f"afade=t=in:st=0:d={FADE_IN},afade=t=out:st={dur - fade_out:.3f}:d={fade_out:.3f}"
     )

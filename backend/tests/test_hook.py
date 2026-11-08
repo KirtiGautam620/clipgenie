@@ -99,7 +99,7 @@ def test_approving_draws_the_hook_for_a_few_seconds_beside_the_captions(client, 
     job, folder = make_job(folders[0], clip_entry())
     clip = folder / "clip_1.mp4"
     plain_early, plain_late = gray_frame(clip, 1.0), gray_frame(clip, 2.4)
-    r = client.post(hook_url(job), json={"text": "Why this matters", "style": {"seconds": 2}, "approve": True})
+    r = client.post(hook_url(job), json={"text": "Why this matters", "preset": "poster", "style": {"seconds": 2}, "approve": True})
     assert r.status_code == 200, r.text
     assert r.json()["version"] == 1 and r.json()["text"]["hook"]["approved"] is True
     got = client.get(f"/api/jobs/{job}/clips/1/manifest").json()
@@ -143,7 +143,7 @@ def test_a_hook_works_on_a_clip_with_no_text(client, folders):
     from app import export
     export.export_clip(folder / "source.mp4", [], 0.0, 2.6, folder / "clip_1.mp4", folder, "crop", cap_words=[])
     before = gray_frame(folder / "clip_1.mp4", 1.0)
-    assert client.post(hook_url(job), json={"text": "Why this matters", "approve": True}).status_code == 200
+    assert client.post(hook_url(job), json={"text": "Why this matters", "preset": "poster", "approve": True}).status_code == 200
     assert changed(gray_frame(folder / "clip_1.mp4", 1.0), before) > 3
 
 

@@ -56,3 +56,32 @@ def test_ai_unavailable_falls_back_to_basic_picker(monkeypatch):
     segs = [seg(i * 10, i * 10 + 9) for i in range(8)]
     clips, note = h.pick_ai_clips(segs, 20, 40, 2)
     assert clips and "AI unavailable" in note
+
+
+def _stub_ai(monkeypatch, trusted):
+    """A fake model: it picks sentences 0-4 and scores them 8. Speech trust is set by the test."""
+    def fake(system, user, timeout=300):
+        if system.startswith("You are a video editor"):
+            return {"clips": [{"first": 0, "last": 4, "title": "T", "reason": "R", "mood": "other"}]}
+        if system.startswith("You are an editor fixing"):
+            return {"first": 0, "last": 4, "problem": "none"}
+        return {"score": 8, "why": "good"}
+    monkeypatch.setattr(h, "ask_json", fake)
+    monkeypatch.setattr(h, "unload", lambda: None)
+    monkeypatch.setattr(h, "_speech_is_trusted", lambda window: trusted)
+
+
+def test_ai_moments_on_untrusted_speech_are_not_used(monkeypatch):
+    _stub_ai(monkeypatch, trusted=False)
+    segs = [seg(i * 10, i * 10 + 10) for i in range(8)]
+    clips, note = h.pick_ai_clips(segs, 20, 60, 2)
+    assert "could not be trusted" in note
+    assert all(c["reason"] != "R" for c in clips)     # the AI's words about it are not used
+
+
+def test_ai_moments_on_trusted_speech_are_used(monkeypatch):
+    _stub_ai(monkeypatch, trusted=True)
+    segs = [seg(i * 10, i * 10 + 10) for i in range(8)]
+    clips, note = h.pick_ai_clips(segs, 20, 60, 2)
+    assert note == "ok"
+    assert clips[0]["reason"] == "R" and clips[0]["start"] == 0 and clips[0]["end"] == 50

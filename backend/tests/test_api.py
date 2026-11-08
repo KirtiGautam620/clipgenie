@@ -118,7 +118,7 @@ def test_changing_the_music_requires_confirming_again(client, folders, monkeypat
     client.post(f"/api/jobs/{job}/clips/1/checklist", json={"items": [i["id"] for i in clip["checklist"]]})
     assert client.get(f"/api/jobs/{job}/clips/1/download").status_code == 200
 
-    def fake_set(job_id, clip_id, track_id, volume):       # stands in for the ffmpeg mix
+    def fake_set(job_id, clip_id, track_id, volume, start=0.0):       # stands in for the ffmpeg mix
         data = json.loads((folder / "clips.json").read_text())
         data["clips"][0]["version"] += 1
         data["clips"][0]["music"] = None

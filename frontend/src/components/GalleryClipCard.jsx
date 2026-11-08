@@ -23,7 +23,8 @@ export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit
       const updated = await getJSON(`${base}/hook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approve: true }),
+        // the suggested text, with the whole clip as its length (the editor can shorten it)
+        body: JSON.stringify({ text: hook.text, approve: true, style: { seconds: 0 } }),
       });
       if (onUpdated) onUpdated(updated);
     } catch (e) {
@@ -90,6 +91,18 @@ export default function GalleryClipCard({ jobId, clip, source, onPreview, onEdit
               {adding ? 'Adding…' : 'Add heading to video'}
             </button>
             {addError && <p className="cg-text-xs cg-text-error">{addError}</p>}
+          </div>
+        )}
+
+        {/* Every clip can get a heading: with no suggestion waiting, this opens the editor's Text tab */}
+        {!hookWaiting && (
+          <div className="cg-vc-heading">
+            <p className="cg-vc-desc">
+              {hook?.approved && hook.text ? `Heading on video: “${hook.text}”` : 'No heading yet.'}
+            </p>
+            <button type="button" className="cg-btn cg-btn--secondary cg-btn--sm" onClick={() => onEdit(clip)}>
+              {hook?.approved ? 'Change heading' : 'Add heading'}
+            </button>
           </div>
         )}
 

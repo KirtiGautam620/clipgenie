@@ -9,7 +9,8 @@ from pathlib import Path
 
 FONT_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts"   # Poppins: Latin + Devanagari
 WEIGHTS = {"semibold": "Poppins-SemiBold.ttf", "bold": "Poppins-Bold.ttf",
-           "extrabold": "Poppins-ExtraBold.ttf"}
+           "extrabold": "Poppins-ExtraBold.ttf",
+           "handwritten": "Caveat-Regular.ttf"}      # Caveat (OFL, see assets/fonts/Caveat-OFL.txt): Latin only
 ANIMATIONS = ("none", "highlight", "pop")   # none = the whole line stays the same colour
 BOXES = ("none", "pill", "bar")             # pill = behind the spoken word, bar = behind the line
 SCRIPTS = ("original", "hinglish")          # hinglish = Hindi words in Roman letters (see hinglish.py)
@@ -132,6 +133,7 @@ class HeadlineStyle:
     seconds: int = 4            # how long it stays on screen; 0 = the whole clip
     box: str = "card"
     shadow: bool = True
+    accent_last: bool = False   # True: the last word is drawn in accent_color (no box looks)
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -150,8 +152,17 @@ HEADLINE_PRESETS = {
         "label": "Title", "description": "Big plain capitals with a soft shadow, no box.",
         "style": dict(weight="extrabold", size=82, accent_color="#FFB84D", position=26, box="none",
                       uppercase=True, seconds=3, shadow=True)},
+    "handwritten": {
+        "label": "Handwritten", "description": "Thin hand-drawn capitals in white, near the top, no box.",
+        "style": dict(weight="handwritten", size=96, text_color="#FFFFFF", accent_color="#FFFFFF", position=24,
+                      box="none", uppercase=True, seconds=4, shadow=True)},
+    "plain": {
+        "label": "Plain", "description": "White text near the top, no box, the last word in red.",
+        "style": dict(weight="extrabold", size=74, accent_color="#E53935", position=24, box="none",
+                      uppercase=False, seconds=4, shadow=True, accent_last=True)},
 }
 DEFAULT_HEADLINE_PRESET = "poster"
+DEFAULT_HOOK_PRESET = "plain"          # a heading (hook) over the top of a short: white, red last word, no box
 
 HEADLINE_LIMITS = {"size": (40, 110), "position": (HEADLINE_POSITION_MIN, HEADLINE_POSITION_MAX),
                    "seconds": (0, 15)}

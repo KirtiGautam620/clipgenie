@@ -8,13 +8,13 @@ from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, R
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app import captions, captionstyles, guard, jobs, manifest, music, projects, rights, styles, textmode, ytdl
+from app import captions, captionstyles, guard, jobs, manifest, music, photoedit, photovideo, projects, rights, styles, textmode, ytdl
 from app.llm import OLLAMA_MODEL
 from app.storyboard.api import router as storyboard_router
 from app.assistant.api import api as assistant_api
 from app.assistant import workflows as assistant_workflows
 from app.content.api import api as content_api
-from app.pipeline import (Busy, DEFAULTS, apply_manifest, apply_style, reset_to_ai, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_hook, set_clip_music,
+from app.pipeline import (Busy, DEFAULTS, apply_manifest, apply_style, reset_to_ai, run_clips_only, run_pipeline, set_clip_captions, set_clip_effects, set_clip_extend, set_clip_hook, set_clip_music,
                           set_clip_text)
 
 
@@ -297,6 +297,7 @@ def clip_report(job_id: str, clip_id: int):
 class MusicChoice(BaseModel):
     track_id: str | None = None          # None = no music
     volume: float = Field(DEFAULTS["music_volume"], ge=0, le=1)
+    start: float = Field(0.0, ge=0, le=86400)   # seconds into the song where the clip's music begins
 
 
 @app.post("/api/jobs/{job_id}/clips/{clip_id}/music")
@@ -305,9 +306,11 @@ def change_clip_music(job_id: str, clip_id: int, choice: MusicChoice):
     A new mix is a new version of the clip, so its checklist must be confirmed again."""
     _clips(job_id)
     try:
-        return rights.enrich(job_id, set_clip_music(job_id, clip_id, choice.track_id, choice.volume))
+        return rights.enrich(job_id, set_clip_music(job_id, clip_id, choice.track_id, choice.volume, choice.start))
     except KeyError as e:
         raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except RuntimeError as e:
         raise HTTPException(500, str(e))
 
@@ -519,9 +522,30 @@ def put_clip_manifest(job_id: str, clip_id: int, document: dict = Body(...)):
         raise HTTPException(500, str(e))
 
 
+class ExtendIn(BaseModel):
+    seconds: float | None = None        # add this many seconds to the end (1 to 15)
+    to_sentence: bool = False           # or stop at the end of the next sentence
+
+
 class EffectsEdit(BaseModel):
     zoom: float = Field(1.0, ge=1.0, le=1.5)   # 1.0 = no zoom, 1.5 = enlarged 50% by the end
     pan: str = "none"                           # none | left | right
+
+
+@app.post("/api/jobs/{job_id}/clips/{clip_id}/extend")
+def extend_clip(job_id: str, clip_id: int, body: ExtendIn):
+    """Make a clip longer at its end (see pipeline.set_clip_extend). A new version: checklist again."""
+    _clips(job_id)
+    try:
+        return rights.enrich(job_id, set_clip_extend(job_id, clip_id, body.seconds, body.to_sentence))
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0]))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Busy as e:
+        raise HTTPException(409, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
 
 
 @app.post("/api/jobs/{job_id}/clips/{clip_id}/effects")
@@ -631,3 +655,107 @@ async def add_music(
                                [m.strip() for m in moods.split(",")], license, attribution, source)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+# ---------------------------------------------------------------- photo videos (photos + song + lines)
+
+@app.post("/api/photo-videos")
+async def create_photo_video(
+    background: BackgroundTasks,
+    photos: list[UploadFile] = File(...),
+    song: UploadFile = File(...),
+    lines: str = Form(""),                       # one line per photo, in order; blank = no text
+    rights: str = Form("no"),                    # "yes" when the user confirms the rights
+    song_start: float = Form(0.0),               # seconds into the song where the video's part starts
+    video_seconds: float = Form(60.0),           # the length of the short: 30 to 60 seconds
+    lyrics: str = Form(""),                      # the whole song's lyrics: one line per line sung (optional)
+):
+    """Make a photo video: the photos in order, each for an equal share of the song."""
+    try:
+        photo_files = [(await p.read(), p.filename or "photo.jpg") for p in photos]
+        data = photovideo.create(photo_files, (await song.read(), song.filename or "song.mp3"),
+                                 lines, rights == "yes", song_start, video_seconds, lyrics)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    background.add_task(photovideo.time_lyrics if data["status"] == "timing" else photovideo.render, data["id"])
+    return data
+
+
+@app.get("/api/photo-videos/{project_id}")
+def photo_video_status(project_id: str):
+    try:
+        return photovideo.read(project_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+class LyricTimes(BaseModel):
+    starts: list[float] = Field(..., max_length=400)   # the start time of each lyric line, in seconds
+
+
+@app.post("/api/photo-videos/{project_id}/timing")
+def set_photo_video_timing(project_id: str, times: LyricTimes, background: BackgroundTasks):
+    """Save the lyric times the user checked, then make the video with them."""
+    try:
+        data = photovideo.set_timing(project_id, times.starts)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    background.add_task(photovideo.render, project_id)
+    return data
+
+
+class PhotoChange(BaseModel):
+    text: str | None = None              # None = keep; "" = no text
+    transition: str | None = None        # cut | fade | slide_left | slide_right | slide_top | slide_bottom
+    transition_speed: str | None = None  # slow | medium | fast
+    text_motion: str | None = None       # none | left | right | top | bottom
+    text_speed: str | None = None        # slow | medium | fast
+    frame: str | None = None             # none | white | black
+
+
+def _editable(project_id: str) -> dict:
+    try:
+        data = photovideo.read(project_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    if data.get("status") in ("queued", "rendering", "timing", "timed"):
+        raise HTTPException(409, "This video is being made. Wait for it to finish, then change it.")
+    return data
+
+
+@app.post("/api/photo-videos/{project_id}/photos/{index}")
+def change_photo_video_photo(project_id: str, index: int, change: PhotoChange, background: BackgroundTasks):
+    """Change one photo's text, transition or frame, then make the video again."""
+    _editable(project_id)
+    try:
+        data = photovideo.change_photo(project_id, index, change.text, change.transition, change.frame,
+                                       change.transition_speed, change.text_motion, change.text_speed)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    background.add_task(photovideo.render, project_id)
+    return data
+
+
+class PhotoVideoEdit(BaseModel):
+    message: str = Field("", max_length=300)
+
+
+@app.post("/api/photo-videos/{project_id}/edit")
+def edit_photo_video(project_id: str, edit: PhotoVideoEdit, background: BackgroundTasks):
+    """Typed request, e.g. 'fade into photo 3'. Understood by rules first, then the local model."""
+    data = _editable(project_id)
+    result = photoedit.apply(project_id, edit.message)
+    if result["changed"]:
+        background.add_task(photovideo.render, project_id)
+        result["project"] = photovideo.read(project_id)
+    else:
+        result["project"] = data
+    return result
+
+
+@app.get("/api/photo-videos/{project_id}/video.mp4")
+def photo_video_file(project_id: str):
+    try:
+        return FileResponse(photovideo.video_path(project_id), media_type="video/mp4")
+    except ValueError as e:
+        raise HTTPException(404, str(e))

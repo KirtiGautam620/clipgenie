@@ -8,6 +8,7 @@ const NAV = [
   { view: 'create', icon: 'create', label: 'Create', also: ['import'] },
   { view: 'gallery', icon: 'videos', label: 'My videos' },
   { view: 'music', icon: 'music', label: 'Music' },
+  { view: 'photos', icon: 'photo', label: 'Photo video' },
   { view: 'settings', icon: 'settings', label: 'Settings' },
 ];
 

@@ -311,23 +311,45 @@ def headline_y(style: HeadlineStyle, video_h: int = 1920) -> int:
     return max(0, min(video_h - HEAD_H, round(style.position / 100 * video_h - HEAD_H / 2)))
 
 
+def _wrap_words(words: list[str], font, width: int) -> list[str]:
+    """Greedy word wrap: as many words per line as fit in `width`."""
+    lines, line = [], ""
+    for w in words:
+        trial = f"{line} {w}".strip()
+        if line and font.getlength(trial) > width:
+            lines.append(line)
+            line = w
+        else:
+            line = trial
+    lines.append(line)
+    return lines
+
+
+def _balanced_wrap(words: list[str], font, width: int, count: int) -> list[str]:
+    """The same number of lines as the plain wrap, but as even as possible (no one-word last line):
+    the narrowest width that still fits in `count` lines is the most even split."""
+    lo, hi, best = 1, width, None
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        lines = _wrap_words(words, font, mid)
+        if len(lines) <= count and all(font.getlength(l) <= width for l in lines):
+            best, hi = lines, mid - 1
+        else:
+            lo = mid + 1
+    return best or _wrap_words(words, font, width)
+
+
 @functools.lru_cache(maxsize=128)
 def _headline_lines(text: str, style: HeadlineStyle) -> tuple[int, tuple[str, ...]]:
     """Wrap the headline into at most three lines, shrinking the letters until it fits."""
     size, words = style.size, text.split(" ")
     while True:
         font = _font(style.weight, size)
-        lines, line = [], ""
-        for w in words:
-            trial = f"{line} {w}".strip()
-            if line and font.getlength(trial) > HEAD_MAX_W:
-                lines.append(line)
-                line = w
-            else:
-                line = trial
-        lines.append(line)
+        lines = _wrap_words(words, font, HEAD_MAX_W)
         fits = len(lines) <= HEAD_MAX_LINES and all(font.getlength(l) <= HEAD_MAX_W for l in lines)
         if fits or size * 0.94 < style.size * MIN_SHRINK:
+            if len(lines) > 1:
+                lines = _balanced_wrap(words, font, HEAD_MAX_W, len(lines))
             return size, tuple(lines)
         size = int(size * 0.94)
 
@@ -370,8 +392,17 @@ def render_headline(text: str, style: HeadlineStyle) -> Image.Image:
         draw = ImageDraw.Draw(img)
     edge = max(3, int(size * 0.06)) if style.box == "none" else 0     # no box: a dark edge keeps it readable
     for i, line in enumerate(lines):
-        draw.text(((HEAD_W - widths[i]) / 2, top + i * (line_h + gap)), line, font=font, fill=fill,
-                  stroke_width=edge, stroke_fill=(15, 15, 18, 255))
+        x, y = (HEAD_W - widths[i]) / 2, top + i * (line_h + gap)
+        if style.accent_last and i == len(lines) - 1:      # the last word of the headline in the accent colour
+            head, _, tail = line.rpartition(" ")
+            head = head + " " if head else ""
+            if head:
+                draw.text((x, y), head, font=font, fill=fill, stroke_width=edge, stroke_fill=(15, 15, 18, 255))
+                x += font.getlength(head)
+            draw.text((x, y), tail, font=font, fill=style.accent_color,
+                      stroke_width=edge, stroke_fill=(15, 15, 18, 255))
+            continue
+        draw.text((x, y), line, font=font, fill=fill, stroke_width=edge, stroke_fill=(15, 15, 18, 255))
     return img
 
 

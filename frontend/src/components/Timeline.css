@@ -271,3 +271,95 @@
   width: 1px;
   background: var(--cg-playhead);
 }
+
+/* ── Caption blocks you can fix from the timeline ───────────────────── */
+.cg-timeline-block--editable {
+  cursor: text;
+}
+
+/* The edit box floats over the lane, so it is not cut off by a short block */
+.cg-block-edit {
+  position: absolute;
+  top: 2px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 5;
+}
+
+.cg-block-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--cg-accent);
+  border-radius: 4px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cg-block-edit-hint,
+.cg-block-edit-error {
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--cg-bg-raised);
+}
+
+.cg-block-edit-hint {
+  color: var(--cg-text-muted);
+}
+
+.cg-block-edit-error {
+  color: var(--cg-error, #b42318);
+}
+
+/* ── Drag the end of the video to make the clip longer ─────────────── */
+.cg-timeline-extend-handle {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 8px;
+  cursor: ew-resize;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.55);
+  z-index: 4;
+}
+
+.cg-timeline-extend-handle:hover {
+  background: #fff;
+}
+
+.cg-timeline-extend-ghost {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border: 1px dashed var(--cg-accent);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--cg-accent);
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.cg-timeline-notice {
+  color: var(--cg-text-secondary);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The hook's end: the same grip as the video's end, a little further in */
+.cg-timeline-resize-handle {
+  top: 2px;
+  bottom: 2px;
+}

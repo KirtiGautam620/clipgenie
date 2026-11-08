@@ -8,6 +8,7 @@ import ProcessingScreen from './components/ProcessingScreen.jsx';
 import Gallery from './components/Gallery.jsx';
 import StudioEditor from './components/StudioEditor.jsx';
 import MusicView from './components/MusicView.jsx';
+import PhotoVideo from './components/PhotoVideo.jsx';
 import PandaBackdrop from './components/PandaBackdrop.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import ExportStudioModal from './components/ExportStudioModal.jsx';
@@ -301,6 +302,9 @@ export default function App() {
             onClipUpdated={handleClipUpdated}
           />
         )}
+
+        {/* Photo video: photos + a song + lines of text */}
+        {view === 'photos' && <PhotoVideo />}
 
         {/* 6. Music Library */}
         {view === 'music' && (

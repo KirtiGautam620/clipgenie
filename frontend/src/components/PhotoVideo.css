@@ -1,0 +1,105 @@
+/* Photo video page: a plain form, then the finished video. Uses the app's shared tokens. */
+.cg-pv {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cg-pv-title {
+  font-family: var(--cg-font-serif, Georgia, serif);
+  font-size: 28px;
+  margin: 0 0 6px;
+}
+
+.cg-pv-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cg-pv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cg-pv-label {
+  font-weight: 600;
+}
+
+.cg-pv-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--cg-border, #d9d2c3);
+  background: var(--cg-surface, #fff);
+  color: inherit;
+  resize: vertical;
+}
+
+.cg-pv-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.cg-pv-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.cg-pv-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.cg-pv-video {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 12px;
+  background: #000;
+}
+
+@media (max-width: 600px) {
+  .cg-pv { padding: 24px 16px 40px; }
+}
+
+/* The chosen-photos list */
+.pv-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.pv-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; max-width: 520px; }
+.pv-item {
+  display: grid; grid-template-columns: 22px 44px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 6px 10px; border-radius: 10px;
+  background: var(--cg-bg-surface, #fffdf7); border: 1px solid var(--cg-border-subtle, #d9d4c4);
+}
+.pv-pos { font-size: 12px; font-weight: 600; color: var(--cg-text-muted, #6b7770); text-align: center; }
+.pv-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; background: #eee; }
+.pv-name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-link {
+  background: none; border: none; padding: 4px 6px; font: inherit; font-size: 13px;
+  color: var(--cg-accent, #285d46); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.pv-link:disabled { opacity: 0.45; cursor: default; }
+.pv-remove { color: #8a2f25; }
+
+/* File pickers: a styled button in place of the browser's grey "Choose files" control */
+.pv-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pv-file-btn {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px;
+  background: var(--cg-accent, #285d46); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.pv-file-btn:hover { filter: brightness(1.08); }
+.pv-pick-text { font-size: 14px; color: var(--cg-text-secondary, #47574e); }
+/* The real input stays in the page (for keyboard and screen readers) but is not shown */
+.pv-file-input {
+  position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; overflow: hidden; pointer-events: none;
+}
+.pv-tip { margin: 6px 0 0; font-size: 12px; color: var(--cg-text-muted, #6b7770); }

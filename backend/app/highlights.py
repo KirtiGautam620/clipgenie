@@ -11,6 +11,7 @@ model can never produce a clip that cuts a sentence in half or is the wrong leng
 """
 import re
 
+from app.clips import _trusted as _speech_is_trusted
 from app.clips import pick_clips
 from app.llm import LLMError, ask_json, unload
 
@@ -222,6 +223,15 @@ def _pick(segments: list[dict], min_len: float, max_len: float,
     if not reviewed:
         return (pick_clips(segments, min_len, max_len, count),
                 "AI found no strong moments, used the basic picker instead")
+
+    # The model judged each moment from its transcript. Where the speech is not trusted (music,
+    # noise, a wrong language) that transcript is garbled, so the picture may not match the words.
+    # Keep only moments whose speech is trusted; if none are, use the basic picker, which does the same check.
+    trusted = [c for c in reviewed if _speech_is_trusted(segments[c["first"]:c["last"] + 1])]
+    if not trusted:
+        return (pick_clips(segments, min_len, max_len, count),
+                "AI moments were on speech that could not be trusted, used the basic picker instead")
+    reviewed = trusted
 
     reviewed.sort(key=lambda c: -c["score"])        # best across the whole video first
     chosen = _drop_overlaps(reviewed)[:count]       # (boundaries may have moved: re-check)

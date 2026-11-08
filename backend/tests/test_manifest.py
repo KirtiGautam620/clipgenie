@@ -51,7 +51,7 @@ def test_old_job_clip_gets_a_manifest_with_todays_defaults():
     assert m["framing"]["mode"] == "crop"
     assert m["effects"] == {"zoom": 1.0, "pan": "none"}
     assert m["text"] == {"mode": "captions", "captions": None, "headline": None, "hook": None}
-    assert m["audio"]["music"] == {"track_id": "starter-emotional", "volume": 0.6}
+    assert m["audio"]["music"] == {"track_id": "starter-emotional", "volume": 0.6, "start": 0.0}
 
 
 def test_new_clip_manifest_carries_captions_effects_and_framing():

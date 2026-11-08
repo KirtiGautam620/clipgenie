@@ -22,8 +22,8 @@ DEFAULTS = {"min_len": 30, "max_len": 60, "count": 5, "use_ai": True, "framing":
             "edit_mode": "auto", "style_id": styles.DEFAULT_STYLE}
 
 
-def _music_info(track: dict, volume: float) -> dict:
-    return {"track_id": track["id"], "title": track["title"], "volume": volume,
+def _music_info(track: dict, volume: float, start: float = 0.0) -> dict:
+    return {"track_id": track["id"], "title": track["title"], "volume": volume, "start": start,
             "license": track["license_label"], "attribution": track["attribution"],
             "warning": track["warning"]}
 
@@ -64,7 +64,7 @@ def _sync_clip(clip: dict, old: dict, new: dict, result: dict) -> None:
             clip["cut"]["cut_start"], clip["cut"]["cut_end"] = span["start"], span["end"]
         clip["duration"] = round(manifest.output_length(new), 1)
         if "start" in clip and "end" in clip:
-            clip["start"], clip["end"] = max(clip["start"], span["start"]), min(clip["end"], span["end"])
+            clip["start"], clip["end"] = span["start"], span["end"]     # shortened or extended
     info = result.get("framing")
     if info:                                   # the picture was made again
         info = dict(info)
@@ -74,7 +74,7 @@ def _sync_clip(clip: dict, old: dict, new: dict, result: dict) -> None:
         clip["captions"] = copy.deepcopy(new["text"]["captions"])
     if render.MUSIC in result["stages"]:
         wanted = new["audio"]["music"]
-        clip["music"] = _music_info(result["music"], wanted["volume"]) if wanted else None
+        clip["music"] = _music_info(result["music"], wanted["volume"], wanted.get("start", 0.0)) if wanted else None
 
 
 def _apply(job_id: str, clip_id: int, change, force=frozenset()) -> dict:
@@ -104,15 +104,19 @@ def _apply(job_id: str, clip_id: int, change, force=frozenset()) -> dict:
         heavy_job_lock.release()
 
 
-def set_clip_music(job_id: str, clip_id: int, track_id: str | None, volume: float) -> dict:
-    """Change (or remove) the music of one finished clip. Only the audio is re-mixed."""
+def set_clip_music(job_id: str, clip_id: int, track_id: str | None, volume: float, start: float = 0.0) -> dict:
+    """Change (or remove) the music of one finished clip. Only the audio is re-mixed.
+    `start` is the second of the song where the clip's music begins."""
     def change(clip, m):
         if track_id is None:
             m["audio"]["music"] = None
         else:
-            if music.get_track(track_id) is None:
+            track = music.get_track(track_id)
+            if track is None:
                 raise KeyError("Unknown music track")
-            m["audio"]["music"] = {"track_id": track_id, "volume": volume}
+            if start > 0 and track["seconds"] and start >= track["seconds"]:
+                raise ValueError("That start point is past the end of the song.")
+            m["audio"]["music"] = {"track_id": track_id, "volume": volume, "start": start}
     return _apply(job_id, clip_id, change, force={render.MUSIC})
 
 
@@ -254,7 +258,7 @@ def set_clip_hook(job_id: str, clip_id: int, text: str | None, preset: str | Non
             clean = captionstyles.clean_headline(text)
             old_style = {k: v for k, v in (old.get("style") or {}).items() if k != "preset"}
             chosen = (captionstyles.resolve_headline(preset, style or {}) if preset
-                      else captionstyles.resolve_headline((old.get("style") or {}).get("preset", captionstyles.DEFAULT_HEADLINE_PRESET),
+                      else captionstyles.resolve_headline((old.get("style") or {}).get("preset", captionstyles.DEFAULT_HOOK_PRESET),
                                                           {**old_style, **(style or {})}))
             state["hook"] = {"text": clean, "style": chosen.as_dict(), "approved": False,
                              "source": "user" if text != old.get("text") else old.get("source", "user")}
@@ -348,6 +352,61 @@ def set_clip_effects(job_id: str, clip_id: int, settings: dict) -> dict:
 
     def change(clip, m):
         m["effects"] = new_effects
+    return _apply(job_id, clip_id, change, force={render.PICTURE})
+
+
+EXTEND_MAX_SECONDS = 15.0     # the most one extend adds to a clip
+
+
+def set_clip_extend(job_id: str, clip_id: int, seconds: float | None = None, to_sentence: bool = False) -> dict:
+    """Make a clip longer at its end, so it does not stop in the middle of a thought.
+
+    to_sentence: stop at the end of the first sentence after the clip (at most EXTEND_MAX_SECONDS
+    later); otherwise add `seconds`. The picture is made again from the source video, and caption
+    words that were said in the added time are added too (only for clips with trusted captions)."""
+    folder, clips_file, data, clip, out = _load_clip(job_id, clip_id)
+    old = manifest.current(folder, clip)
+    if old["speed"] != 1.0:
+        raise ValueError("Set the speed back to normal before extending this clip.")
+    old_end = old["clip"]["end"]
+    source_len = cuts.probe_duration(folder / "source.mp4")
+    transcript = json.loads((folder / "transcript.json").read_text())
+    words = [w for seg in transcript["segments"] for w in seg["words"]]
+    if to_sentence:
+        limit = min(source_len, old_end + EXTEND_MAX_SECONDS)
+        target = limit
+        for w in words:
+            if w["end"] <= old_end + 0.05:
+                continue
+            if w["start"] > limit:
+                break
+            if w["word"].strip()[-1:] in ".?!":
+                target = min(limit, w["end"] + 0.2)
+                break
+    else:
+        if seconds is None or not (0 < seconds <= EXTEND_MAX_SECONDS):
+            raise ValueError(f"Choose between 1 and {EXTEND_MAX_SECONDS:.0f} seconds to add.")
+        target = old_end + seconds
+    new_end = round(min(target, source_len), 2)
+    if new_end <= old_end + 0.05:
+        raise ValueError("This video already reaches the end of the source footage.")
+
+    offset = old_end - old["clip"]["start"]           # caption times count from the clip's start
+    added = []
+    if old["text"]["captions"] is not None:
+        for w in words_in_clip(words, old_end, new_end):
+            added.append({**w, "start": round(w["start"] + offset, 3), "end": round(w["end"] + offset, 3)})
+
+    def change(clip, m):
+        m["clip"]["end"] = new_end
+        segs = copy.deepcopy(m["segments"])            # kept parts; the last one reaches the old end
+        if segs and abs(segs[-1]["end"] - old_end) <= 0.05:
+            segs[-1]["end"] = new_end
+        else:
+            segs.append({"start": old_end, "end": new_end})
+        m["segments"] = segs
+        if m["text"]["captions"] is not None:
+            m["text"]["captions"]["words"] = m["text"]["captions"]["words"] + copy.deepcopy(added)
     return _apply(job_id, clip_id, change, force={render.PICTURE})
 
 
