@@ -18,6 +18,12 @@ export default function SongPartPicker({ id = 'song-part', songSeconds, start, o
   const at = Math.min(Math.max(0, start), maxStart);
   const windowLength = Math.max(0, Math.min(maxLength, songSeconds - at));
 
+  // The preview reads the latest start and length, so moving the slider while it plays moves the sound too.
+  const startRef = useRef(at);
+  const lengthRef = useRef(windowLength);
+  startRef.current = at;
+  lengthRef.current = windowLength;
+
   function stopPreview() {
     if (previewRef.current) previewRef.current.pause();
     previewRef.current = null;
@@ -27,6 +33,13 @@ export default function SongPartPicker({ id = 'song-part', songSeconds, start, o
   useEffect(() => () => { if (previewRef.current) previewRef.current.pause(); }, []);
   useEffect(() => { stopPreview(); }, [previewUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Slider moved while the preview plays: jump the sound to the new start.
+  useEffect(() => {
+    const audio = previewRef.current;
+    if (!audio) return;
+    try { audio.currentTime = at; } catch { /* the file is not ready yet; the start is set when it is */ }
+  }, [at]);
+
   if (!(songSeconds > 0)) return null;
 
   function togglePreview() {
@@ -34,8 +47,10 @@ export default function SongPartPicker({ id = 'song-part', songSeconds, start, o
     const audio = new Audio(previewUrl);
     audio.preload = 'auto';
     // Browsers ignore a start position set before the file's length is known, so set it once it is.
-    audio.addEventListener('loadedmetadata', () => { audio.currentTime = at; }, { once: true });
-    audio.ontimeupdate = () => { if (audio.currentTime >= at + (windowLength || 30)) stopPreview(); };
+    audio.addEventListener('loadedmetadata', () => { audio.currentTime = startRef.current; }, { once: true });
+    audio.ontimeupdate = () => {
+      if (audio.currentTime >= startRef.current + (lengthRef.current || 30)) stopPreview();
+    };
     audio.onended = stopPreview;
     audio.play().catch(() => stopPreview());
     previewRef.current = audio;

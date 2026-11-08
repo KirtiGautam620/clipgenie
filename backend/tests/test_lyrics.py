@@ -67,3 +67,8 @@ def test_each_photo_shows_the_line_that_starts_it_when_it_fits():
 def test_a_line_too_long_for_the_text_is_not_shown():
     texts = lyrics.photo_texts([0.0], ["x" * 60], starts=[0.0], end=10.0, max_chars=40)
     assert texts == [""]
+
+
+def test_a_line_that_was_not_heard_is_not_shown_on_a_photo():
+    texts = lyrics.photo_texts([0.0, 4.0], [None, "sung line"], starts=[0.0], end=10.0, max_chars=40)
+    assert texts == ["sung line"]

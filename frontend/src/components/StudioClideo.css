@@ -1,0 +1,21 @@
+/* Clideo-style look for the Studio: an icon rail beside the tools, and a clock beside the play controls */
+.cg-studio-stage { grid-template-columns: 76px 290px 1fr 300px; }
+
+.cg-studio-rail {
+  display: flex; flex-direction: column; gap: 4px; padding: 8px 4px;
+  background: var(--cg-bg-surface);
+  border-right: 1px solid var(--cg-border-subtle);
+}
+.cg-rail-btn {
+  display: grid; justify-items: center; gap: 3px; padding: 10px 2px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--cg-text-secondary); cursor: pointer; font: inherit;
+}
+.cg-rail-btn:hover { background: var(--cg-bg-inset); color: var(--cg-text-primary); }
+.cg-rail-btn.active { background: var(--cg-accent-subtle, #dfeae3); color: var(--cg-accent); font-weight: 600; }
+.cg-rail-glyph { font-size: 18px; line-height: 1; }
+.cg-rail-label { font-size: 11px; }
+
+.cg-clock {
+  margin-left: 10px; font-size: 13px; color: var(--cg-text-secondary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}

@@ -99,13 +99,32 @@ def photo_starts(line_times: list[float], photo_count: int, begin: float, end: f
     return [round(t, 2) for t in chosen]
 
 
+LINE_MAX_SECONDS = 6.0    # a lyric line stays on screen this long at most (an instrumental gap does not hold it)
+
+
+def cues(line_times: list[float], lines: list[str], begin: float, end: float, max_chars: int) -> list[dict]:
+    """Each heard lyric line, on screen from its time until the next line starts (at most LINE_MAX_SECONDS).
+    Times are seconds from the start of the video (begin = where the video's part starts in the song).
+    A line that was not heard (None) or is too long for the text is left out."""
+    timed = [(t, line) for t, line in zip(line_times, lines)
+             if line and len(line) <= max_chars and begin <= t < end - 0.5]
+    out = []
+    for k, (t, line) in enumerate(timed):
+        stop = timed[k + 1][0] if k + 1 < len(timed) else end
+        stop = min(stop, t + LINE_MAX_SECONDS, end)
+        if stop - t < 0.5:
+            continue
+        out.append({"text": line, "start": round(t - begin, 2), "end": round(stop - begin, 2)})
+    return out
+
+
 def photo_texts(line_times: list[float], lines: list[str], starts: list[float], end: float,
                 max_chars: int) -> list[str]:
     """The lyric line that starts each photo (blank if it is too long for the text, or if none starts there)."""
     texts = []
     for k, start in enumerate(starts):
         stop = starts[k + 1] if k + 1 < len(starts) else end
-        here = [line for line, t in zip(lines, line_times) if start <= t < stop]
+        here = [line for line, t in zip(lines, line_times) if line and start <= t < stop]   # None = not heard
         first = here[0] if here else ""
         texts.append(first if len(first) <= max_chars else "")
     return texts

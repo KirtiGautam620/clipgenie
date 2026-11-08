@@ -12,6 +12,19 @@ import './StudioEditor.css';
 // every control changes the real video (captions, headline, music, zoom and pan). AI visuals and an
 // AI assistant are not here because they are not built yet.
 
+import './StudioClideo.css';
+
+// The left icon rail: the same tools as before, shown as icons with names (Clideo-style).
+const RAIL = [['ai', 'AI edit', '✦'], ['text', 'Text', 'T'], ['captions', 'Captions', 'CC'],
+  ['picture', 'Effects', '◐'], ['audio', 'Music', '♪']];
+
+// The time, as m:ss.hh
+function clock(seconds) {
+  const s = Math.max(0, seconds || 0);
+  const m = Math.floor(s / 60);
+  return `${m}:${(s - m * 60).toFixed(2).padStart(5, '0')}`;
+}
+
 function describeVoice(audio) {
   if (!audio?.applied) return 'As recorded';
   if (typeof audio.loudness === 'string' && audio.loudness.startsWith('skipped')) {
@@ -653,15 +666,17 @@ export default function StudioEditor({
       </header>
 
       <div className="cg-studio-stage">
+        <nav className="cg-studio-rail" aria-label="Editing tools">
+          {RAIL.map(([id, label, glyph]) => (
+            <button key={id} type="button" className={`cg-rail-btn ${leftTab === id ? 'active' : ''}`}
+              aria-current={leftTab === id ? 'true' : undefined} onClick={() => setLeftTab(id)}>
+              <span className="cg-rail-glyph" aria-hidden="true">{glyph}</span>
+              <span className="cg-rail-label">{label}</span>
+            </button>
+          ))}
+        </nav>
+
         <aside className="cg-left-panel">
-          <div className="cg-panel-tabs">
-            {[['ai', 'AI edit'], ['text', 'Text'], ['captions', 'Captions'], ['picture', 'Effects'], ['audio', 'Music']].map(([id, label]) => (
-              <button key={id} type="button" className={`cg-panel-tab ${leftTab === id ? 'active' : ''}`}
-                onClick={() => setLeftTab(id)}>
-                {label}
-              </button>
-            ))}
-          </div>
 
           <div className="cg-panel-body">
             {leftTab === 'text' && (
@@ -733,6 +748,7 @@ export default function StudioEditor({
               style={{ minWidth: 70 }}>{isPlaying ? '⏸' : '▶'}</button>
             <button type="button" className="cg-btn cg-btn--sm cg-btn--ghost" title="Forward 1 second"
               onClick={() => handleSeek(Math.min(duration, currentTime + 1))}>⏩</button>
+            <span className="cg-clock">{clock(currentTime)} / {clock(duration)}</span>
           </div>
         </main>
 

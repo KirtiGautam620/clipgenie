@@ -73,12 +73,13 @@ def test_bad_times_are_refused(project, monkeypatch, starts, message):
 
 def test_checked_times_plan_the_photo_changes_and_their_lines(project, monkeypatch):
     data = project(LYRICS, photos=2, seconds=60.0)
-    fake_transcript(monkeypatch, [("hello", 2.0)])
+    fake_transcript(monkeypatch, [("hello", 2.0), ("there", 2.4), ("goodbye", 30.0), ("now", 30.4)])
     photovideo.time_lyrics(data["id"])
     done = photovideo.set_timing(data["id"], [2.0, 8.0, 30.0, 45.0])
     assert done["status"] == "queued"
     assert sum(done["photo_times"]) == pytest.approx(60.0, abs=0.05)
-    assert [p["text"] for p in done["photos"]] == ["Hello there", "goodbye now"]   # lines that start each photo
+    assert [p["text"] for p in done["photos"]] == ["", ""]        # the photos carry no lyric text...
+    assert [c["text"] for c in done["cues"]] == ["Hello there", "my friend", "goodbye now", "see you"]
 
 
 def test_the_ffmpeg_command_uses_the_planned_photo_times(project, monkeypatch, tmp_path):
@@ -97,3 +98,39 @@ def test_rendering_waits_until_the_lyrics_are_checked(project, monkeypatch):
     data = project(LYRICS)
     photovideo.render(data["id"])                        # status 'timing': nothing is rendered
     assert photovideo.read(data["id"])["status"] == "timing"
+
+
+def test_each_heard_line_is_on_screen_while_it_is_sung(project, monkeypatch):
+    data = project(LYRICS, photos=2, seconds=60.0, start=10.0)     # the video's part starts at 10 s of the song
+    fake_transcript(monkeypatch, [("hello", 12.0), ("there", 12.4), ("my", 20.0), ("friend", 20.3),
+                                  ("goodbye", 40.0), ("now", 40.4)])
+    photovideo.time_lyrics(data["id"])
+    done = photovideo.set_timing(data["id"], [12.0, 20.0, 40.0, 50.0])
+    # times are from the start of the video: 12 s of the song is 2 s of the video
+    assert done["cues"] == [
+        {"text": "Hello there", "start": 2.0, "end": 8.0},      # held until the next line, at most 6 seconds
+        {"text": "my friend", "start": 10.0, "end": 16.0},
+        {"text": "goodbye now", "start": 30.0, "end": 36.0},
+        {"text": "see you", "start": 40.0, "end": 46.0},
+    ]
+
+
+def test_a_line_not_heard_is_still_shown_at_its_estimated_time(project, monkeypatch):
+    data = project(LYRICS, photos=2, seconds=60.0)
+    fake_transcript(monkeypatch, [("hello", 2.0), ("there", 2.4)])
+    photovideo.time_lyrics(data["id"])
+    done = photovideo.set_timing(data["id"], [2.0, 8.0, 30.0, 45.0])
+    assert [c["text"] for c in done["cues"]] == ["Hello there", "my friend", "goodbye now", "see you"]
+    assert done["cues"][1]["start"] == 8.0                          # the estimated time is used
+
+
+def test_the_ffmpeg_command_shows_each_lyric_cue_only_while_sung(project, monkeypatch, tmp_path):
+    data = project(LYRICS, photos=2, seconds=60.0)
+    fake_transcript(monkeypatch, [("hello", 2.0), ("there", 2.4), ("goodbye", 30.0), ("now", 30.4)])
+    photovideo.time_lyrics(data["id"])
+    done = photovideo.set_timing(data["id"], [2.0, 8.0, 30.0, 45.0])
+    folder = photovideo._folder(data["id"])
+    cmd = photovideo._command(folder, done, folder / "out.mp4")
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert "enable='between(t,2.00,8.00)'" in graph
+    assert "[vout]" in graph and graph.count("overlay=") >= len(done["cues"])

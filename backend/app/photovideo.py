@@ -33,7 +33,8 @@ TEXT_STYLE_PRESET = "handwritten"         # thin hand-drawn capitals (Caveat)
 DEVANAGARI = re.compile(r"[\u0900-\u097F]")   # Caveat has no Devanagari: such lines use the Plain look (Poppins)
 DEVANAGARI_FALLBACK_PRESET = "plain"
 # How a photo comes in: a hard cut, a fade from black, or a slide in from one side.
-TRANSITIONS = ("cut", "fade", "slide_left", "slide_right", "slide_top", "slide_bottom")
+TRANSITIONS = ("cut", "fade", "slide_left", "slide_right", "slide_top", "slide_bottom", "dice")
+DICE_GRID = 3                              # the dice transition: the new photo lands in a 3 x 3 grid of tiles
 LEGACY_TRANSITIONS = {"slide": "slide_right"}          # saved projects used to say just "slide"
 SPEEDS = {"slow": 1.0, "medium": 0.6, "fast": 0.3}     # seconds each move takes
 MOTIONS = ("none", "left", "right", "top", "bottom")   # which side the TEXT comes in from
@@ -167,12 +168,29 @@ def _text_png(folder: Path, index: int, text: str) -> Path:
     return path
 
 
+def _cue_png(folder: Path, index: int, text: str) -> Path:
+    style = captionstyles.resolve_headline(_preset_for(text), {})
+    path = folder / "input" / f"cue_{index:03d}.png"
+    path.write_bytes(captions.headline_png(text, style))
+    return path
+
+
 def _picture(frame: str) -> str:
     """Scale and crop a photo to fill the frame, with an optional border."""
     b = FRAME_PX if frame in FRAME_COLOURS else 0
     iw, ih = W - 2 * b, H - 2 * b
     return (f"scale={iw}:{ih}:force_original_aspect_ratio=increase,crop={iw}:{ih},"
             f"pad={W}:{H}:{b}:{b}:color={FRAME_COLOURS.get(frame, 'black')},setsar=1,format=yuv420p")
+
+
+def _dice_alpha(seconds: float) -> str:
+    """How much of the new photo shows at each moment, per tile (0 = hidden, 255 = shown). Tiles are
+    numbered 0..8 across the grid; each one starts in a different order (so it is not a plain wipe) and
+    takes 30% of the transition to fill in."""
+    n = DICE_GRID
+    tile = f"(floor(X*{n}/W)+{n}*floor(Y*{n}/H))"
+    start = f"({seconds:.3f}*0.7*mod({tile}*5,{n * n})/{n * n - 1})"
+    return f"255*clip((T-{start})/({seconds:.3f}*0.3),0,1)"
 
 
 def _enter(direction: str, seconds: float, base_x: str, base_y: str) -> tuple[str, str]:
@@ -210,6 +228,11 @@ def _command(folder: Path, data: dict, out: Path) -> list[str]:
     for i, p in enumerate(photos):
         if p["text"]:
             text_index[i] = add(_text_png(folder, i + 1, p["text"]), times[i])
+    cue_index = []                                       # lyric lines: each one is a picture shown for its time
+    for k, cue in enumerate(data.get("cues") or []):
+        style = captionstyles.resolve_headline(_preset_for(cue["text"]), {})
+        cue_index.append((add(_cue_png(folder, k, cue["text"]), cue["end"]), cue["start"], cue["end"],
+                          captions.headline_y(style, H)))
     cmd += ["-i", str(folder / "input" / data["song_file"])]
     song_input = n_inputs
     n_inputs += 1
@@ -219,8 +242,9 @@ def _command(folder: Path, data: dict, out: Path) -> list[str]:
     parts = []
     for i, p in enumerate(photos):
         transition = LEGACY_TRANSITIONS.get(p.get("transition", "cut"), p.get("transition", "cut"))
-        if transition.startswith("slide") and i == 0:
-            transition = "cut"                           # nothing to slide over
+        if transition in ("dice",) or transition.startswith("slide"):
+            if i == 0:
+                transition = "cut"                       # nothing to slide or land over
         seconds = min(SPEEDS.get(p.get("transition_speed", "medium"), SPEEDS["medium"]), times[i] / 3)
         parts.append(f"[{i}:v]{_picture(p.get('frame', 'none'))}[p{i}]")
         src = f"p{i}"
@@ -235,6 +259,20 @@ def _command(folder: Path, data: dict, out: Path) -> list[str]:
         elif transition == "fade":
             parts.append(f"[p{i}]fade=t=in:st=0:d={seconds:.2f}[f{i}]")
             src = f"f{i}"
+        elif transition == "dice":
+            # the previous photo stays; the new one shows tile by tile, each tile in its own moment
+            # only the transition itself gets the tile effect (it is slow); the rest of the photo is plain
+            base = add(folder / "input" / photos[i - 1]["file"], times[i])
+            cut_at = f"{seconds:.3f}"
+            parts.append(f"[{base}:v]{_picture(photos[i - 1].get('frame', 'none'))}[b{i}]")
+            parts.append(f"[p{i}]split=2[pa{i}][pb{i}]")
+            parts.append(f"[pa{i}]trim=end={cut_at},setpts=PTS-STARTPTS,format=rgba,"
+                         f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{_dice_alpha(seconds)}'[da{i}]")
+            parts.append(f"[b{i}]trim=end={cut_at},setpts=PTS-STARTPTS[bb{i}]")
+            parts.append(f"[bb{i}][da{i}]overlay=0:0:format=auto,format=yuv420p[ds{i}]")
+            parts.append(f"[pb{i}]trim=start={cut_at},setpts=PTS-STARTPTS[dr{i}]")
+            parts.append(f"[ds{i}][dr{i}]concat=n=2:v=1:a=0[s{i}]")
+            src = f"s{i}"
         if i in text_index:
             parts.append(f"[{text_index[i]}:v]format=rgba[t{i}]")
             motion = p.get("text_motion", "none")
@@ -244,7 +282,14 @@ def _command(folder: Path, data: dict, out: Path) -> list[str]:
         else:
             parts.append(f"[{src}]null[v{i}]")
     joined = "".join(f"[v{i}]" for i in range(len(photos)))
-    parts.append(f"{joined}concat=n={len(photos)}:v=1:a=0,format=yuv420p[vout]")
+    parts.append(f"{joined}concat=n={len(photos)}:v=1:a=0[vcat]")
+    last = "vcat"
+    for k, (idx, start, stop, cue_y) in enumerate(cue_index):   # each lyric line shows only while it is sung
+        parts.append(f"[{idx}:v]format=rgba[cr{k}]")
+        parts.append(f"[{last}][cr{k}]overlay=x='(W-w)/2':y='{cue_y}':"
+                     f"enable='between(t,{start:.2f},{stop:.2f})':format=auto[cv{k}]")
+        last = f"cv{k}"
+    parts.append(f"[{last}]format=yuv420p[vout]")
     total = data["song_seconds"]
     start = data.get("song_start", 0.0)            # projects made before song parts existed start at 0
     parts.append(f"[{song_input}:a]atrim=start={start:.2f}:duration={total:.2f},asetpts=PTS-STARTPTS,"
@@ -260,33 +305,69 @@ def change_photo(project_id: str, index: int, text: str | None = None, transitio
                  text_motion: str | None = None, text_speed: str | None = None) -> dict:
     """Change one photo: its text and how the text comes in, how the photo comes in, or its frame.
     Marks the video for a new render."""
+    return change_photos(project_id, [{"index": index, "text": text, "transition": transition, "frame": frame,
+                                       "transition_speed": transition_speed, "text_motion": text_motion,
+                                       "text_speed": text_speed}])
+
+
+def change_photos(project_id: str, changes: list[dict], order: list[int] | None = None,
+                  durations: list[float] | None = None) -> dict:
+    """Apply several photo changes at once and mark the video for ONE new render. Each change has an
+    "index" (1-based, the order BEFORE this call) and any of: text, transition, frame, transition_speed,
+    text_motion, text_speed. A field left as None is kept. `order` (optional) is the new order of the
+    photos as their old numbers, e.g. [2, 1, 3] puts photo 2 first. Everything is checked before anything
+    is saved."""
+    if not changes and order is None and durations is None:
+        raise ValueError("Nothing to change.")
     data = read(project_id)
     photos = data["photos"]
-    if not 1 <= index <= len(photos):
-        raise ValueError(f"There is no photo {index}. This video has {len(photos)}.")
-    photo = photos[index - 1]
-    if text is not None:
-        cleaned = text.strip()
-        if cleaned:
-            captionstyles.clean_headline(cleaned)        # same rules as a headline
-        photo["text"] = cleaned
-    if transition is not None:
-        transition = LEGACY_TRANSITIONS.get(transition, transition)
-        if transition not in TRANSITIONS:
-            raise ValueError(f"The transition must be one of: {', '.join(TRANSITIONS)}.")
-        photo["transition"] = transition
-    if transition_speed is not None:
-        photo["transition_speed"] = _speed(transition_speed)
-    if text_motion is not None:
-        if text_motion not in MOTIONS:
-            raise ValueError(f"The text must come in from one of: {', '.join(MOTIONS)}.")
-        photo["text_motion"] = text_motion
-    if text_speed is not None:
-        photo["text_speed"] = _speed(text_speed)
-    if frame is not None:
-        if frame not in FRAMES:
-            raise ValueError(f"The frame must be one of: {', '.join(FRAMES)}.")
-        photo["frame"] = frame
+    for change in changes:
+        index = change["index"]
+        if isinstance(index, bool) or not isinstance(index, int) or not 1 <= index <= len(photos):
+            raise ValueError(f"There is no photo {index}. This video has {len(photos)}.")
+        photo = photos[index - 1]
+        text = change.get("text")
+        if text is not None:
+            cleaned = text.strip()
+            if cleaned:
+                captionstyles.clean_headline(cleaned)        # same rules as a headline
+            photo["text"] = cleaned
+        transition = change.get("transition")
+        if transition is not None:
+            transition = LEGACY_TRANSITIONS.get(transition, transition)
+            if transition not in TRANSITIONS:
+                raise ValueError(f"The transition must be one of: {', '.join(TRANSITIONS)}.")
+            photo["transition"] = transition
+        if change.get("transition_speed") is not None:
+            photo["transition_speed"] = _speed(change["transition_speed"])
+        if change.get("text_motion") is not None:
+            if change["text_motion"] not in MOTIONS:
+                raise ValueError(f"The text must come in from one of: {', '.join(MOTIONS)}.")
+            photo["text_motion"] = change["text_motion"]
+        if change.get("text_speed") is not None:
+            photo["text_speed"] = _speed(change["text_speed"])
+        if change.get("frame") is not None:
+            if change["frame"] not in FRAMES:
+                raise ValueError(f"The frame must be one of: {', '.join(FRAMES)}.")
+            photo["frame"] = change["frame"]
+    if order is not None:
+        if data.get("timing"):
+            raise ValueError("Lyric videos keep their photo order, because the lyrics are timed to it.")
+        if sorted(order) != list(range(1, len(photos) + 1)):
+            raise ValueError(f"The new order must list each photo 1 to {len(photos)} once.")
+        data["photos"] = [photos[n - 1] for n in order]
+    if durations is not None:
+        if data.get("timing"):
+            raise ValueError("Lyric videos keep their photo lengths, because the lyrics are timed to them.")
+        if len(durations) != len(data["photos"]):
+            raise ValueError(f"Give a length for each of the {len(data['photos'])} photos.")
+        for d in durations:
+            if isinstance(d, bool) or not isinstance(d, (int, float)) or not math.isfinite(d) or d < MIN_PER_PHOTO:
+                raise ValueError(f"Each photo shows for at least {MIN_PER_PHOTO} seconds.")
+        total = data["song_seconds"]
+        if abs(sum(durations) - total) > 0.05:
+            raise ValueError(f"The photo lengths must add up to {total:.1f} seconds.")
+        data["photo_times"] = [round(float(d), 2) for d in durations]
     data.update(status="queued", error=None, version=data.get("version", 0) + 1)
     _write(_folder(project_id), data)
     return data
@@ -324,6 +405,14 @@ def render(project_id: str) -> None:
     finally:
         heavy_job_lock.release()
         _write(folder, data)
+
+
+def photo_path(project_id: str, name: str) -> Path:
+    """The saved picture of one photo in this project (only a photo the project has)."""
+    data = read(project_id)
+    if name not in {p["file"] for p in data["photos"]}:
+        raise ValueError("This project has no such photo.")
+    return _folder(project_id) / "input" / name
 
 
 def video_path(project_id: str) -> Path:
@@ -383,11 +472,13 @@ def set_timing(project_id: str, starts: list[float]) -> dict:
 
     begin, end = data["song_start"], data["song_start"] + data["song_seconds"]
     photo_at = lyrics.photo_starts(clean, len(data["photos"]), begin, end)
-    shown = lyrics.photo_texts(clean, [l["text"] for l in lines], photo_at, end, captionstyles.HEADLINE_MAX_CHARS)
+    # every lyric line is on screen at its checked time (lines not heard use an estimated time, shown
+    # as "estimated" on the check page); the photos themselves carry no text
+    data["cues"] = lyrics.cues(clean, [l["text"] for l in lines], begin, end, captionstyles.HEADLINE_MAX_CHARS)
     ends = photo_at[1:] + [end]
     data["photo_times"] = [round(e - s, 2) for s, e in zip(photo_at, ends)]
-    for photo, text in zip(data["photos"], shown):
-        photo["text"] = text
+    for photo in data["photos"]:
+        photo["text"] = ""
     timing["lines"] = [{**line, "start": t} for line, t in zip(lines, clean)]
     timing["source"] = "edited"
     data.update(status="queued", error=None, version=data.get("version", 0) + 1)

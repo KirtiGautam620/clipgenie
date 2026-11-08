@@ -187,8 +187,9 @@ export default function PhotoVideo() {
           <textarea rows={6} value={lyrics} onChange={(e) => setLyrics(e.target.value)}
             placeholder={'Paste the whole song, one line per line sung.'} />
           <span className="cg-text-xs cg-text-muted">
-            The app listens to the song and times each line, so the photos change with the lyrics. You check the times
-            before the video is made. With lyrics, the text box below is not used.
+            The app listens to the song and times each line. Each heard line appears on the video while it is sung,
+            and the photos change on lyric lines. You check the times before the video is made. With lyrics, the
+            text box below is not used.
           </span>
         </label>
 
@@ -227,19 +228,16 @@ export default function PhotoVideo() {
             <p className="cg-text-sm cg-text-error">The video could not be made. {project.error}</p>
           )}
           {done && (
-            <>
-              <video className="cg-pv-video" src={`/api/photo-videos/${project.id}/video.mp4?v=${project.version || 0}`}
-                controls playsInline />
-              <a className="cg-btn cg-btn--secondary" href={`/api/photo-videos/${project.id}/video.mp4`} download>
-                Download MP4
-              </a>
-            </>
+            <a className="cg-btn cg-btn--secondary" href={`/api/photo-videos/${project.id}/video.mp4`} download>
+              Download MP4
+            </a>
           )}
         </div>
       )}
       {project?.status === 'timed' && <LyricTiming project={project} onProject={setProject} />}
       {project && !['failed', 'timing', 'timed'].includes(project.status) && (
-        <PhotoVideoEditor project={project} onProject={setProject} working={working} />
+        <PhotoVideoEditor key={`${project.id}-${project.version || 0}`} project={project} onProject={setProject}
+          working={working} />
       )}
     </section>
   );

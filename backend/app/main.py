@@ -706,7 +706,7 @@ def set_photo_video_timing(project_id: str, times: LyricTimes, background: Backg
 
 class PhotoChange(BaseModel):
     text: str | None = None              # None = keep; "" = no text
-    transition: str | None = None        # cut | fade | slide_left | slide_right | slide_top | slide_bottom
+    transition: str | None = None        # cut | fade | slide_left | slide_right | slide_top | slide_bottom | dice
     transition_speed: str | None = None  # slow | medium | fast
     text_motion: str | None = None       # none | left | right | top | bottom
     text_speed: str | None = None        # slow | medium | fast
@@ -736,6 +736,29 @@ def change_photo_video_photo(project_id: str, index: int, change: PhotoChange, b
     return data
 
 
+class PhotoChangeItem(PhotoChange):
+    index: int = Field(..., ge=1, le=photovideo.MAX_PHOTOS)   # 1-based: which photo
+
+
+class PhotoChanges(BaseModel):
+    changes: list[PhotoChangeItem] = Field(default_factory=list, max_length=photovideo.MAX_PHOTOS)
+    order: list[int] | None = Field(None, max_length=photovideo.MAX_PHOTOS)   # new order of the photos (old numbers)
+    durations: list[float] | None = Field(None, max_length=photovideo.MAX_PHOTOS)   # seconds per photo, in the new order
+
+
+@app.post("/api/photo-videos/{project_id}/changes")
+def change_photo_video_many(project_id: str, body: PhotoChanges, background: BackgroundTasks):
+    """Several photo changes at once (from the Change panel's Apply button), then ONE new render."""
+    _editable(project_id)
+    try:
+        data = photovideo.change_photos(project_id, [c.model_dump() for c in body.changes], body.order,
+                                             body.durations)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    background.add_task(photovideo.render, project_id)
+    return data
+
+
 class PhotoVideoEdit(BaseModel):
     message: str = Field("", max_length=300)
 
@@ -751,6 +774,15 @@ def edit_photo_video(project_id: str, edit: PhotoVideoEdit, background: Backgrou
     else:
         result["project"] = data
     return result
+
+
+@app.get("/api/photo-videos/{project_id}/photos/{name}")
+def photo_video_photo(project_id: str, name: str):
+    """A photo of this project, for the editor's timeline and preview."""
+    try:
+        return FileResponse(photovideo.photo_path(project_id, name), media_type="image/jpeg")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @app.get("/api/photo-videos/{project_id}/video.mp4")
